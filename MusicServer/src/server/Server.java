@@ -78,7 +78,7 @@ public class Server extends JFrame {
 						int count;
 						// Reading the data with read() and sending it with write()
 						// -1 means the end of stream (no more bytes to read)
-						while((count = bInput.read(bytes)) > 0) {
+						while((count = bInput.read(bytes)) >= 0) {
 							
 							// count is the number of bytes to write,
 							// 0 is the offset
