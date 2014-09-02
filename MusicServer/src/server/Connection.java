@@ -2,6 +2,7 @@ package server;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -36,9 +37,10 @@ public class Connection implements Runnable {
 		// Get streams to send/receive data
 		System.out.print("Setting up streams... ");
 		
-		input = new ObjectInputStream(socket.getInputStream());
 		output = new ObjectOutputStream(socket.getOutputStream());
 		output.flush();
+		input = new ObjectInputStream(socket.getInputStream());
+		
 		
 		System.out.println("Done");
 	}
@@ -47,29 +49,67 @@ public class Connection implements Runnable {
 		// Keep contacting the client if the server is open
 		while(Server.isOpen()) {
 			try {
-				Thread.sleep(10000);
-				// Wait for the client to give the server a command
-				//System.out.println("Awaiting message...");
-				int message = (Integer) input.readObject();
+				
+				/*
+				 * Maybe later on detect if there is a
+				 * connection problem and automatically reconnect
+				 * to the server. Detect by using specific Exceptions.
+				 * Might need them in multiple places.
+				 */
+				
+				
+				
+				sendFile(new File("C:/Users/Clay/Music/Aphex Twin - Delphium.mp3"));
+				Server.isOpen = false;
+				//disconnect();
+				if(true) return;
+				
+				System.err.println("\nSHOULD NOT PRINT\n");
+				
+				int message = -1;
+				try {
+					// Wait for the client to give the server a command
+					message = (Integer) input.readObject();
+				}
+				catch(Exception e) {
+					e.printStackTrace();
+					Thread.sleep(50);
+					System.err.println("\nAn error occurred");
+				}
 				
 				System.out.println("[" + socket.getInetAddress().getHostName() + "] " + message);
 				
 				switch(message) {
 				case 0:
-					//send(0);
+					// Send music library info to client
+					String[][] songs = {
+							{"id", "artist", "album", "song"},
+							{"id2", "artist2", "album2", "song2"}
+					};
+					
+					output.writeObject(songs);
+					output.flush();
 					break;
 				case 1:
+					// Receive and ID number for the file the client wants
+					int songID = (Integer) input.readObject();
+					System.out.println("songID:" + songID);
+					
+					// Now send the client the song
+					sendFile(new File("C:/Users/Clay/Music/Aphex Twin - Delphium.mp3"));
+					Server.isOpen = false;
 					//send(1);
 					break;
 				default:
 					System.out.println("Invalid action");
 				}
 			}
-			catch(ClassNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
+			catch (IOException e) {
 				e.printStackTrace();
 			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} catch (ClassNotFoundException e) {
+				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -81,7 +121,7 @@ public class Connection implements Runnable {
 	private void send(int message) {
 		try {
 			// Send a message to the client
-			output.writeObject(new Integer(message));
+			//output.writeObject(new Integer(message));
 			output.flush();			
 		}
 		catch(IOException e) {
@@ -108,17 +148,17 @@ public class Connection implements Runnable {
 			
 			// For sending the loaded RAM
 			BufferedOutputStream bOutput = new BufferedOutputStream(socket.getOutputStream());
-			bOutput.flush();
 			
 			System.out.println("Sending file...");
 			
 			// Reading the data with read() and sending it with write()
 			// -1 means the end of stream (no more bytes to read)
 			for(int count; (count = bInput.read(bytes)) >= 0;) {
+				
 				// count is the number of bytes to write,
 				// 0 is the offset
 				// bytes is the actual data to write
-				output.write(bytes, 0, count);
+				bOutput.write(bytes, 0, count);
 				System.out.println(count + " bytes sent.");
 			}
 			
@@ -139,8 +179,9 @@ public class Connection implements Runnable {
 		// Close streams and sockets
 		System.out.println("Ending connection...");
 		try {
-			input.close();
+			output.flush();
 			output.close();
+			input.close();
 			socket.close();
 		}
 		catch(IOException e) {

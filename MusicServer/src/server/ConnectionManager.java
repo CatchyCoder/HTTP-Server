@@ -38,7 +38,7 @@ public class ConnectionManager implements Runnable {
 				// Keep connection to clients
 				checkConnections();
 				
-				Thread.sleep(100);
+				Thread.sleep(10);
 			}
 		}
 		catch(IOException e) {
