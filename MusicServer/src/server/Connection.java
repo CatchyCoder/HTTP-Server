@@ -118,10 +118,10 @@ public class Connection implements Runnable {
 		//send(-1);
 	}
 	
-	private void send(int message) {
+	private void send(Object object) {
 		try {
 			// Send a message to the client
-			//output.writeObject(new Integer(message));
+			output.writeObject(object);
 			output.flush();			
 		}
 		catch(IOException e) {
@@ -177,16 +177,13 @@ public class Connection implements Runnable {
 	
 	public void disconnect() {
 		// Close streams and sockets
-		System.out.println("Ending connection...");
+		System.out.print("Ending connection... ");
 		try {
-			output.flush();
-			output.close();
-			input.close();
 			socket.close();
 		}
 		catch(IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Connection ended.\n==========================\n");
+		System.out.println("Done.");
 	}
 }
