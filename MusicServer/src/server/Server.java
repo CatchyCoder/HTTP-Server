@@ -3,6 +3,9 @@ package server;
 import java.io.IOException;
 import java.net.ServerSocket;
 
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+
 public class Server {
 	
 	/*

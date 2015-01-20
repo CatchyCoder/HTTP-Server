@@ -2,7 +2,6 @@ package server;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -24,11 +23,12 @@ public class Connection implements Runnable {
 		
 		try {
 			// Establish a connection and begin communicating with the client
-			setupStreams();
+			System.out.println("Bypassing stream setup.");
+			//setupStreams();
 			System.out.println("Setup is now finished.\n");
 			new Thread(this).start();
 		}
-		catch(IOException e) {
+		catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
@@ -57,9 +57,11 @@ public class Connection implements Runnable {
 				 * Might need them in multiple places.
 				 */
 				
+				Thread.sleep(2000);
+				sendFile(new File("C://Test/test.txt"));
 				
 				
-				sendFile(new File("C:/Users/Clay/Music/Aphex Twin - Delphium.mp3"));
+				
 				Server.isOpen = false;
 				//disconnect();
 				if(true) return;
