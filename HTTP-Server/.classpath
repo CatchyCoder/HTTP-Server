@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="lib" path="jar/httpcore-4.3.3.jar"/>
+	<classpathentry kind="lib" path="oldjar/commons-net-3.3.jar"/>
+	<classpathentry kind="lib" path="oldjar/ftplet-api-1.0.6.jar"/>
+	<classpathentry kind="lib" path="oldjar/ftpserver-core-1.0.6.jar"/>
+	<classpathentry kind="lib" path="oldjar/mina-core-2.0.4.jar"/>
+	<classpathentry kind="lib" path="oldjar/slf4j-log4j12-1.5.2.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
