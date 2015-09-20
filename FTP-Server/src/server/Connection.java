@@ -23,9 +23,7 @@ public class Connection implements Runnable {
 		
 		try {
 			// Establish a connection and begin communicating with the client
-			System.out.println("Bypassing stream setup.");
-			//setupStreams();
-			System.out.println("Setup is now finished.\n");
+			setupStreams();
 			new Thread(this).start();
 		}
 		catch(Exception e) {
@@ -40,7 +38,6 @@ public class Connection implements Runnable {
 		output = new ObjectOutputStream(socket.getOutputStream());
 		output.flush();
 		input = new ObjectInputStream(socket.getInputStream());
-		
 		
 		System.out.println("Done");
 	}
@@ -57,13 +54,8 @@ public class Connection implements Runnable {
 				 * Might need them in multiple places.
 				 */
 				
-				Thread.sleep(2000);
-				sendFile(new File("C://Test/test.txt"));
-				
-				
 				
 				Server.isOpen = false;
-				//disconnect();
 				if(true) return;
 				
 				System.err.println("\nSHOULD NOT PRINT\n");
@@ -136,7 +128,7 @@ public class Connection implements Runnable {
 		// Making sure the file isn't too big
 		long size = file.length();
 		
-		if(size > Integer.MAX_VALUE)
+		if(size > Long.MAX_VALUE)
 			System.err.println("File size too large.");
 		
 		else try {
@@ -144,18 +136,18 @@ public class Connection implements Runnable {
 			// Used for the buffer size
 			byte[] bytes = new byte[(int) size];
 			
-			// For loading the file into RAM
+			// For reading/loading the file into RAM
 			FileInputStream fInput = new FileInputStream(file);
 			BufferedInputStream bInput = new BufferedInputStream(fInput);
 			
-			// For sending the loaded RAM
+			// For sending the file loaded into RAM
 			BufferedOutputStream bOutput = new BufferedOutputStream(socket.getOutputStream());
 			
 			System.out.println("Sending file...");
 			
 			// Reading the data with read() and sending it with write()
 			// -1 means the end of stream (no more bytes to read)
-			for(int count; (count = bInput.read(bytes)) >= 0;) {
+			for(int count; (count = bInput.read(bytes)) > -1;) {
 				
 				// count is the number of bytes to write,
 				// 0 is the offset

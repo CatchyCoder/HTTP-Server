@@ -19,13 +19,13 @@ public class ConnectionManager implements Runnable {
 		// successfully established.
 		Socket socket = server.getServer().accept();
 		
-		System.out.println("Connection found with " + socket.getInetAddress().getHostName() + ".");
-		
 		// This will automatically configure the connection
 		Connection connection = new Connection(socket);
 		
 		// Adding to the list of connections
 		sockets.add(connection);
+		
+		System.out.println("Connection found with " + socket.getInetAddress().getHostName() + ".");
 				
 		return connection;
 	}
@@ -35,10 +35,9 @@ public class ConnectionManager implements Runnable {
 		System.out.println("Server is up and running.\n");
 		try {
 			while(Server.isOpen()) {
-				// Keep connection to clients
+				// Keep connecting to incoming clients
 				checkConnections();
-				
-				Thread.sleep(10);
+				Thread.sleep(1);
 			}
 		}
 		catch(IOException e) {
