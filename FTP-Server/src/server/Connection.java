@@ -10,6 +10,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class Connection implements Runnable {
 	
 	private final Socket socket;
@@ -17,6 +20,8 @@ public class Connection implements Runnable {
 	// For simple communication with the client
 	private ObjectInputStream input;
 	private ObjectOutputStream output;
+	
+	private static final Logger log = LogManager.getLogger(Connection.class);
 	
 	public Connection(Socket socket) {
 		this.socket = socket;
@@ -33,13 +38,13 @@ public class Connection implements Runnable {
 	
 	private void setupStreams() throws IOException {
 		// Get streams to send/receive data
-		System.out.print("Setting up streams... ");
+		log.debug("Setting up streams... ");
 		
 		output = new ObjectOutputStream(socket.getOutputStream());
 		output.flush();
 		input = new ObjectInputStream(socket.getInputStream());
 		
-		System.out.println("Done");
+		log.debug("Done");
 	}
 	
 	public void run () {
@@ -129,10 +134,10 @@ public class Connection implements Runnable {
 		long size = file.length();
 		
 		if(size > Long.MAX_VALUE)
-			System.err.println("File size too large.");
+			log.error("File size too large.");
 		
 		else try {
-			System.out.println("Preparing to send file...");
+			log.debug("Preparing to send file...");
 			// Used for the buffer size
 			byte[] bytes = new byte[(int) size];
 			
@@ -143,7 +148,7 @@ public class Connection implements Runnable {
 			// For sending the file loaded into RAM
 			BufferedOutputStream bOutput = new BufferedOutputStream(socket.getOutputStream());
 			
-			System.out.println("Sending file...");
+			log.debug("Sending file...");
 			
 			// Reading the data with read() and sending it with write()
 			// -1 means the end of stream (no more bytes to read)
@@ -153,14 +158,14 @@ public class Connection implements Runnable {
 				// 0 is the offset
 				// bytes is the actual data to write
 				bOutput.write(bytes, 0, count);
-				System.out.println(count + " bytes sent.");
+				log.debug(count + " bytes sent.");
 			}
 			
 			fInput.close();
 			bInput.close();
 			bOutput.close();
 			
-			System.out.println("File sent. Hurray!!!");
+			log.debug("File sent. Hurray!!!");
 			
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
@@ -171,13 +176,13 @@ public class Connection implements Runnable {
 	
 	public void disconnect() {
 		// Close streams and sockets
-		System.out.print("Ending connection... ");
+		log.debug("Ending connection... ");
 		try {
 			socket.close();
 		}
 		catch(IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Done.");
+		log.debug("Done.");
 	}
 }
