@@ -26,7 +26,7 @@ public class ConnectionManager implements Runnable {
 		sockets.add(connection);
 		
 		System.out.println("Connection found with " + socket.getInetAddress().getHostName() + ".");
-				
+		
 		return connection;
 	}
 	
