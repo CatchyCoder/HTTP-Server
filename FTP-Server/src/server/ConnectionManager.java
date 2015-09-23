@@ -20,8 +20,8 @@ public class ConnectionManager implements Runnable {
 	
 	public Connection checkConnections() throws IOException {
 		if(sockets.size() == 0) log.debug("Awaiting a connection... ");
-		// Thread will stay at this line until a connection is
-		// successfully established.
+		
+		// Thread will stay at this line until a connection is successfully established.
 		Socket socket = server.getServer().accept();
 		
 		// This will automatically configure the connection
@@ -30,7 +30,7 @@ public class ConnectionManager implements Runnable {
 		// Adding to the list of connections
 		sockets.add(connection);
 		
-		log.debug("Connection found with " + socket.getInetAddress().getHostName() + ".");
+		log.debug("Connection established with [" + socket.getInetAddress().getHostName() + "].");
 		
 		return connection;
 	}
@@ -46,13 +46,20 @@ public class ConnectionManager implements Runnable {
 			}
 		}
 		catch(IOException e) {
-			e.printStackTrace();
+			log.error(e);
 		} catch (InterruptedException e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 		finally {
-			// Server has closed, disconnect from all clients
+			// Disconnect from all clients
 			for(Connection connection : sockets) connection.disconnect();
+			try {
+				// Close server
+				server.getServer().close();
+			} catch (IOException e) {
+				log.error(e);
+			}
+			log.debug("Server is closed and has disconnected from all clients.");
 		}
 	}
 	

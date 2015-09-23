@@ -4,11 +4,16 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class Sound {
 
 	private static final String PATH = "/snd/";
 	
 	public static Sound BUMP = loadSound("HardKick.wav");
+	
+	private static final Logger log = LogManager.getLogger(Sound.class);
 	
 	private Clip clip;
 	
@@ -21,7 +26,7 @@ public class Sound {
 			sound.clip = clip;
 		}
 		catch(Exception e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 		return sound;
 	}
@@ -42,7 +47,7 @@ public class Sound {
 			}
 		}
 		catch(Exception e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 	}
 }

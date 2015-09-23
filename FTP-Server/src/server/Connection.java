@@ -32,7 +32,7 @@ public class Connection implements Runnable {
 			new Thread(this).start();
 		}
 		catch(Exception e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 	}
 	
@@ -52,18 +52,10 @@ public class Connection implements Runnable {
 		while(Server.isOpen()) {
 			try {
 				
-				/*
-				 * Maybe later on detect if there is a
-				 * connection problem and automatically reconnect
-				 * to the server. Detect by using specific Exceptions.
-				 * Might need them in multiple places.
-				 */
-				
-				
-				Server.isOpen = false;
+				disconnect();
 				if(true) return;
 				
-				System.err.println("\nSHOULD NOT PRINT\n");
+				log.error("\nSHOULD NOT PRINT\n");
 				
 				int message = -1;
 				try {
@@ -71,12 +63,11 @@ public class Connection implements Runnable {
 					message = (Integer) input.readObject();
 				}
 				catch(Exception e) {
-					e.printStackTrace();
+					log.error(e);
 					Thread.sleep(50);
-					System.err.println("\nAn error occurred");
 				}
 				
-				System.out.println("[" + socket.getInetAddress().getHostName() + "] " + message);
+				log.debug("[" + socket.getInetAddress().getHostName() + "] " + message);
 				
 				switch(message) {
 				case 0:
@@ -92,7 +83,7 @@ public class Connection implements Runnable {
 				case 1:
 					// Receive and ID number for the file the client wants
 					int songID = (Integer) input.readObject();
-					System.out.println("songID:" + songID);
+					log.debug("songID:" + songID);
 					
 					// Now send the client the song
 					sendFile(new File("C:/Users/Clay/Music/Aphex Twin - Delphium.mp3"));
@@ -100,16 +91,15 @@ public class Connection implements Runnable {
 					//send(1);
 					break;
 				default:
-					System.out.println("Invalid action");
+					log.error("Invalid action");
 				}
 			}
 			catch (IOException e) {
-				e.printStackTrace();
+				log.error(e);
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				log.error(e);
 			} catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				log.error(e);
 			}
 		}
 		
@@ -117,19 +107,18 @@ public class Connection implements Runnable {
 		//send(-1);
 	}
 	
-	private void send(Object object) {
+	private void sendObject(Object object) {
 		try {
 			// Send a message to the client
 			output.writeObject(object);
 			output.flush();			
 		}
 		catch(IOException e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 	}
 	
 	public void sendFile(File file) {
-		
 		// Making sure the file isn't too big
 		long size = file.length();
 		
@@ -168,9 +157,9 @@ public class Connection implements Runnable {
 			log.debug("File sent. Hurray!!!");
 			
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+			log.error(e);
 		} catch (IOException e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 	}
 	
@@ -181,7 +170,7 @@ public class Connection implements Runnable {
 			socket.close();
 		}
 		catch(IOException e) {
-			e.printStackTrace();
+			log.error(e);
 		}
 		log.debug("Done.");
 	}
