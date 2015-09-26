@@ -52,7 +52,6 @@ public class Connection implements Runnable {
 		while(Server.isOpen()) {
 			try {
 				
-				disconnect();
 				if(true) return;
 				
 				log.error("\nSHOULD NOT PRINT\n");

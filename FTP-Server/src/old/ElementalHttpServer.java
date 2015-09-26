@@ -25,7 +25,7 @@
 // *
 // */
 //
-//package old;
+package old;
 //
 //import java.io.File;
 //import java.io.IOException;
@@ -74,7 +74,7 @@
 ///**
 // * Basic, yet fully functional and spec compliant, HTTP/1.1 file server.
 // */
-//public class ElementalHttpServer {
+public class ElementalHttpServer {
 //
 //    public static void main(String[] args) throws Exception {
 //    	
@@ -268,4 +268,4 @@
 //
 //    }
 //
-//}
+}

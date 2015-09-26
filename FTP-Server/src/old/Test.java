@@ -1,11 +1,11 @@
-//package old;
+package old;
 //
 //import org.apache.ftpserver.FtpServer;
 //import org.apache.ftpserver.FtpServerFactory;
 //import org.apache.ftpserver.ftplet.FtpException;
 //import org.apache.ftpserver.listener.ListenerFactory;
 //
-//public class Test {
+public class Test {
 //		
 //	public Test() {
 //		FtpServerFactory serverFactory = new FtpServerFactory();
@@ -30,4 +30,4 @@
 //	public static void main(String[] args) {
 //		new Test();
 //	}
-//}
+}

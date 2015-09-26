@@ -20,7 +20,6 @@ public class Server {
 		isOpen = true;
 		
 		ConnectionManager manager = new ConnectionManager(this);
-		new Thread(manager).start();
 	}
 	
 	public static boolean isOpen() {
