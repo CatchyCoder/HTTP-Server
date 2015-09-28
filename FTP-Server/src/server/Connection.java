@@ -85,7 +85,7 @@ public class Connection implements Runnable {
 					break;
 				case 1:
 					// Client is requesting a test file (song).
-					sendFile(new File("Aphex Twin - Delphium.mp3"));
+					sendFile(new File("C:/Users/owner1/Documents/GitHub/FTP-Server/FTP-Server/src/server/Aphex Twin - Delphium.mp3"));
 					
 					/*// Receive and ID number for the file the client wants
 					int songID = (Integer) input.readObject();
