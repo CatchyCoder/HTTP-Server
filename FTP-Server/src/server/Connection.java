@@ -47,63 +47,63 @@ public class Connection implements Runnable {
 		log.debug("Done");
 	}
 	
+	@Override
 	public void run () {
 		// Keep contacting the client if the server is open
 		while(Server.isOpen()) {
+			int message = -1;
 			try {
-				
-				if(true) return;
-				
-				log.error("\nSHOULD NOT PRINT\n");
-				
-				int message = -1;
+				log.debug("About to read clients message");
+				// Wait for the client to give the server a command in the form of an integer
 				try {
-					// Wait for the client to give the server a command
 					message = (Integer) input.readObject();
-				}
-				catch(Exception e) {
-					log.error(e);
-					Thread.sleep(50);
+				}catch(Exception e) {
+					//log.error("Client didn't send message", e);
+					
+					// The client didn't send a message, so start the loop
+					// and check for the message once again
+					Thread.sleep(2000);
+					continue;
 				}
 				
 				log.debug("[" + socket.getInetAddress().getHostName() + "] " + message);
 				
 				switch(message) {
 				case 0:
-					// Send music library info to client
+					// Client is requesting a test object to ensure a solid connection
+					int rand = (int)(Math.random() * 100);
+					sendObject(rand);
+					
+					/*// Send music library info to client
 					String[][] songs = {
 							{"id", "artist", "album", "song"},
 							{"id2", "artist2", "album2", "song2"}
 					};
 					
 					output.writeObject(songs);
-					output.flush();
+					output.flush();*/
 					break;
 				case 1:
-					// Receive and ID number for the file the client wants
+					// Client is requesting a test file (song).
+					sendFile(new File("Aphex Twin - Delphium.mp3"));
+					
+					/*// Receive and ID number for the file the client wants
 					int songID = (Integer) input.readObject();
 					log.debug("songID:" + songID);
 					
 					// Now send the client the song
 					sendFile(new File("C:/Users/Clay/Music/Aphex Twin - Delphium.mp3"));
 					Server.isOpen = false;
-					//send(1);
+					//send(1);*/
 					break;
 				default:
-					log.error("Invalid action");
+					log.error("Invalid action: " + message);
 				}
 			}
-			catch (IOException e) {
-				log.error(e);
-			} catch (InterruptedException e) {
-				log.error(e);
-			} catch (ClassNotFoundException e) {
+			catch(Exception e) {
 				log.error(e);
 			}
 		}
-		
-		// Tell the client that the server has closed
-		//send(-1);
 	}
 	
 	private void sendObject(Object object) {
