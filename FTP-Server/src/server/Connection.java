@@ -19,9 +19,9 @@ import java.util.ArrayList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import command.Command;
-
 public class Connection implements Runnable {
+	
+	private static final Logger log = LogManager.getLogger(Connection.class);
 	
 	private final Socket socket;
 	
@@ -29,8 +29,6 @@ public class Connection implements Runnable {
 	// Storing them in a list and closing them in a loop ensures all streams have been closed.
 	private final ArrayList<InputStream> inStreams = new ArrayList<InputStream>();
 	private final ArrayList<OutputStream> outStreams = new ArrayList<OutputStream>();
-	
-	private static final Logger log = LogManager.getLogger(Connection.class);
 	
 	public Connection(Socket socket) {
 		this.socket = socket;
@@ -59,10 +57,11 @@ public class Connection implements Runnable {
 			log.debug("Setting up input streams...");
 			InputStream in = socket.getInputStream();
 			inStreams.add(new ObjectInputStream(in));
+			inStreams.add(new DataInputStream(in));
 			log.debug("Done.");
 			
 		} catch (IOException e) {
-			log.error("Failed to set up streams with [" + socket.getInetAddress() + "]. Disconnecting.", (Object) e.getStackTrace());
+			log.error("Failed to set up streams with [" + socket.getInetAddress() + "]. Disconnecting.", e);
 			disconnect();
 			return;
 		}
@@ -90,61 +89,60 @@ public class Connection implements Runnable {
 	public void run () {
 		// Keep contacting the client if the server is open
 		while(Server.isOpen()) {
-			log.debug("test");
-			// Wait for the client to give the server a command
-			Command command;
+			// Wait for the client to give the server a command in the form of an integer
+			log.debug("Awaiting command from a client...");
+			int clientCommand = -1;
 			try {
-				log.debug("reading command...");
-				Object obj = ((ObjectInputStream) getInput(ObjectInputStream.class)).readObject();
-				log.debug("got obj now for command.");
-				command = (Command) obj;
-				log.debug("done.");
-			}catch(Exception e) {
-				log.error(e);
-				// The client didn't send a message, so start the loop
-				// and check for the message once again
-				try {
-					Thread.sleep(500);
-				} catch (InterruptedException e1) {
-					log.error(e1.getStackTrace());
-				}
-				continue;
+				clientCommand = ((DataInputStream) getInput(DataInputStream.class)).readInt();
+			} catch (IOException e) {
+				log.error("IO error when awaiting client's message.", e);
 			}
 			
-			log.debug("[" + socket.getInetAddress().getHostName() + "] " + command);
+			log.debug("[" + socket.getInetAddress().getHostName() + "]: " + clientCommand);
 			
-			switch(command) {
-			case TEST_OBJECT:
-				// Client is requesting a test object to ensure a solid connection
-				int rand = (int)(Math.random() * 100);
-				sendCommand(Command.TEST_OBJECT);
+			switch(clientCommand) {
+			case 0: // Client is requesting a test integer to ensure a solid connection
+				int rand = (int)(Math.random() * 100) + 1;
+				sendInt(rand);
 				break;
-			case FILE:
-				// Client is requesting a test file (song).
-				sendFile(new File("/home/clay/git/FTP-Server/FTP-Server/src/server/Aphex Twin - Delphium.mp3"));
+			case 1: // Client is requesting a test file (song).
+				if(sendFile("/home/clay/git/FTP-Server/FTP-Server/src/server/Aphex Twin - Delphium.mp3")) {
+					log.debug("File sent successfully.");
+				}
+				else {
+					log.error("Error sending file.");
+				}
 				break;
 			default:
-				log.error("Invalid action: " + command);
+				log.error("Invalid command: " + clientCommand);
 			}
 		}
 	}
 	
-	private void sendCommand(Command command) {
-		final ObjectOutputStream out = (ObjectOutputStream) getOutput(ObjectOutputStream.class);
+	private void sendInt(int n) {
+		final DataOutputStream out = (DataOutputStream) getOutput(DataOutputStream.class);
 		try {
 			out.flush();
 			
-			// Send a message in the form of an object to the client
-			log.debug("Sending " + command);
-			out.writeObject(command);
+			// Send a message in the form of an integer to the client
+			log.debug("Sending integer: " + n);
+			out.writeInt(n);
 			out.flush();
 			log.debug("Done.");
 		} catch (IOException e) {
-			log.error("Error sending object [" + command + "] to [" + socket.getInetAddress() + "].", (Object) e.getStackTrace());
+			log.error("Error sending integer [" + n + "] to [" + socket.getInetAddress() + "].", e);
 		}
 	}
 	
-	public void sendFile(File file) {
+	public boolean sendFile(String filePath) {
+		File file = new File(filePath);
+		
+		// Making sure the file exists
+		if(!file.exists()) {
+			log.error("File \"" + filePath + "\" does not exist.");
+			return false;
+		}
+		
 		// Making sure the file isn't too big
 		long size = file.length();
 		
@@ -184,10 +182,13 @@ public class Connection implements Runnable {
 			log.debug("Done.");
 			
 		} catch (FileNotFoundException e) {
-			log.error(e.getStackTrace());
+			log.error("Could not find \"" + file.getAbsolutePath() + "\".", e);
+			return false;
 		} catch (IOException e) {
-			log.error(e.getStackTrace());
+			log.error("IO Error.", e);
+			return false;
 		}
+		return true;
 	}
 	
 	public void disconnect() {
@@ -198,30 +199,30 @@ public class Connection implements Runnable {
 		for(InputStream stream: inStreams) {
 			try {
 				stream.close();
+				log.debug("Done.");
 			} catch (IOException e) {
-				log.error(e.getStackTrace());
+				log.error("Error closing input stream with [" + address + "].", e);
 			}
 		}
-		log.debug("Done.");
 		
 		log.debug("Closing output streams...");
 		for(OutputStream stream: outStreams) {
 			try {
 				stream.close();
+				log.debug("Done.");
 			} catch (IOException e) {
-				log.error(e.getStackTrace());
+				log.error("Error closing output stream with [" + address + "].", e);
 			}
 		}
-		log.debug("Done.");
 		
 		log.debug("Ending connection with [" + address + "]...");
 		try {
 			// Close the socket and its associated input/output streams
 			socket.close();
+			log.debug("Done.");
 		}
 		catch(IOException e) {
-			log.error(e.getStackTrace());
+			log.error("Error closing socket with [" + address + "].", e);
 		}
-		log.debug("Done.");
 	}
 }

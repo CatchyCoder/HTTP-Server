@@ -56,10 +56,10 @@ public class ConnectionManager {
 			try {
 				// Close server
 				server.getServer().close();
+				log.debug("Server is closed and has disconnected from all clients.");
 			} catch (IOException e) {
-				log.error(e);
-			}
-			log.debug("Server is closed and has disconnected from all clients.");
+				log.error("Error closing server.", e);
+			}	
 		}
 	}
 	
