@@ -22,13 +22,16 @@ public class Server {
 		isOpen = true;
 		
 		STORAGE = new Storage();
-		log.debug("Album name: " + STORAGE.getField(FieldKey.ALBUM, "/MusicServer/aphex_twin/selected_ambient_works_85–92/Aphex Twin - Delphium.mp3"));
-		log.debug("Albums from Aphex Twin name: ");
 		
-		String[] albums = STORAGE.getAlbums("apHex TwIN");
-		for(String album: albums) log.debug("Album: " + album);
+		STORAGE.sortFiles();
+		log.debug("done sorting");
 		
 		new ConnectionManager(this);
+		
+		// TESTING...
+		try {Thread.sleep(5000);}
+		catch(Exception e){}
+		
 	}
 	
 	public static boolean isOpen() {

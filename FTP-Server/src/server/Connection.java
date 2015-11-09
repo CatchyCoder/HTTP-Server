@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -132,6 +133,59 @@ public class Connection implements Runnable {
 		} catch (IOException e) {
 			log.error("Error sending integer [" + n + "] to [" + socket.getInetAddress() + "].", e);
 		}
+	}
+	
+	private boolean downloadFile() {
+		log.debug("Setting up file streams (for storing file)...");
+		try(
+			// For storing the incoming file (saving)
+			FileOutputStream fOutput = new FileOutputStream(Server.STORAGE.getDownloadPath());
+			BufferedOutputStream bOutput = new BufferedOutputStream(fOutput)
+		) {
+			fOutput.flush();
+			bOutput.flush();
+			
+			log.debug("Done.");
+			
+			// For reading the incoming file
+			InputStream input = socket.getInputStream();
+			
+			// Declaring buffer size
+			int bufferSize = 1024 * 8;
+			byte[] bytes = new byte[bufferSize];
+			
+			// Getting file size from server
+			long fileSize;
+			DataInputStream dInput = (DataInputStream) getInput(DataInputStream.class);
+			if((fileSize = dInput.readLong()) == -1) {
+				log.error("Error getting file size from client.");
+				return false;
+			}
+			
+			log.debug("Downloading " + (fileSize / 1000.0) + "kb file...");
+			log.debug("==============================================");
+			
+			int bytesReceived = 0;
+			// Reading from the input stream and saving to a file	
+			for(int bytesRead; bytesReceived < fileSize && (bytesRead = input.read(bytes)) >= 0;) {
+				bOutput.write(bytes, 0, bytesRead);
+				bytesReceived += bytesRead;
+				log.debug("Got " + bytesRead + " bytes [" + bytesReceived + " of " + fileSize + " bytes received].");
+			}
+			bOutput.flush();
+			fOutput.flush();
+			
+			log.debug("==============================================");
+			log.debug("Done.");
+		} catch (IOException e) {
+			log.error("IO error.", e);
+			return false;
+		}
+		log.debug("try-with-resources block executed. File streams should be closed.");
+		
+		// Placing downloaded file in correct artist folder
+		Server.STORAGE.sortFiles();
+		return true;
 	}
 	
 	public boolean sendFile(String filePath) {
