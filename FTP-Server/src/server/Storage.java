@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import org.apache.logging.log4j.LogManager;
@@ -26,47 +27,52 @@ public class Storage {
 	private final File downloadFolder;
 	
 	/*
-	 * Need to rewrite how the storage works.
-	 *  
-	 * The program should not have to rely on the folder structure
-	 * in order to determine the names of artists and albums. Instead,
-	 * when a song is added, it should be put it in the correct folder. Then when
-	 * a field in a song is updated (say the album name), later on the song could be adjusted to the
-	 * right folder(s) by using a verify() method that checks if each song is under
-	 * the correct album/artist folders. If not then it will be moved. That way
-	 * the file structure could be edited manually, or even corrupted, but the program
-	 * would still work.
-	 * 
-	 * could have a downloads folder in the server folder where downloaded songs are sent
-	 * to before they are sent to the correct directory.
-	 * 
-	 * When a file is downloaded, the storage class should be notified to sort any files in
-	 * the download folder.
+	 * The "artist" folder can never be manually modified, it should only be modified
+	 * by the program and the program only. The program will take care of empty folders,
+	 * misspelled artists, albums, and songs. So there should be no need to manually edit
+	 * the server's "artist" folder. If one wishes to add songs manually to the server,
+	 * they can do so by moving song files to the server's "download" folder. This folder is where songs go
+	 * that have been downloaded from clients and are waiting to be sorted in into the correct
+	 * artist and album folders. By dropping files into this folder, the program will automatically
+	 * sort them whenever it performs it's next sortFiles() method (usually right after a song is downloaded).
+	 * This ensures that the "artist" folder is never modified by hand. The program should also do periodic
+	 * sweeps in the download folder to sort leftover music in there.
 	 */
 	
 	public Storage() {
+		// The Raspberry Pi's mount path to the external drive
+		String mountPath = "/mnt/ext500GB";
 		// Main server folder, where all server files will be stored
-		String serverFolderPath = "";
+		String mainFolder = "/server";
+		// Full path to server's main folder
+		String serverPath = mountPath + mainFolder;
 		
-		// Detecting operating system
-		final String OS = System.getProperty("os.name").toLowerCase();
-		if(OS.contains("windows")) serverFolderPath = "C:/MusicServer";
-		else if(OS.contains("linux")) serverFolderPath = "/MusicServer";
-		else {
-			// OS not supported
-			log.error("Sorry, your operating system, " + OS + ", is not supported. Exiting application.");
-			System.exit(1);
+		// Checking if external drive has been mounted. This assumes that the server folder
+		// on the external drive has already been created (could be an empty folder or not).
+		// If mounted then server folder is visible, else unmounted.
+		if(!new File(mountPath).exists()) {
+			// The mount path has not been created, therefore the external drive is not mounted.
+			log.error("Mount path, " + mountPath +", for external drive could not be found. Exiting application");
+			System.exit(2);
 		}
-		log.debug(OS + " detected.");
+		log.debug("Mount path, " + mountPath +", found.");
+		if(!new File(serverPath).exists()) {
+			// The mount path was created, but the external drive was not mounted.
+			log.error("The external drive does not appear to be mounted (Main folder " + mainFolder + " does not exist). Exiting application");
+			System.exit(3);
+		}
+		log.debug("External drive appears to be mounted.");
 		
 		// Creating required sub-folders for the server to store its files...
-		artistFolder = new File(serverFolderPath + "/artist");
+		artistFolder = new File(serverPath + "/artist");
 		if(artistFolder.exists() || artistFolder.mkdirs()) log.debug(artistFolder.getAbsolutePath() + " path either exists or was created successfully.");
 		else log.error("Error creating " + artistFolder.getAbsolutePath() + ".");
 		
-		downloadFolder = new File(serverFolderPath + "/download");
+		downloadFolder = new File(serverPath + "/download");
 		if(downloadFolder.exists() || downloadFolder.mkdirs()) log.debug(downloadFolder.getAbsolutePath() + " path either exists or was created successfully.");
 		else log.error("Error creating " + downloadFolder.getAbsolutePath() + ".");
+		
+		log.debug("All required folders have been created successfully.");
 	}
 	
 	public String getField(FieldKey key, String filePath) {
@@ -75,11 +81,15 @@ public class Storage {
 			Tag tag = song.getTag();
 			return tag.getFirst(key);
 		} catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
-			log.error("Error getting field " + key + ".", e);
+			log.error("Error getting field " + key + " for " + filePath, e);
 		}
 		return null;
 	}
 	
+	/**
+	 * Takes any residual files in the downloads folder and sorts them into the correct artist and album folder
+	 * under the server's "artist" folder. This essentially updates the database and cleans out the downloads folder.
+	 */
 	public synchronized void sortFiles() {
 		String[] songNames = downloadFolder.list();
 		
@@ -121,6 +131,9 @@ public class Storage {
 		}
 	}
 	
+	/**
+	 * Returns all artist's in the database
+	 */
 	public String[] getArtists() {
 		String[] artists = artistFolder.list();
 		
@@ -129,28 +142,19 @@ public class Storage {
 		return artists;
 	}
 	
-	public String getDownloadPath() { 
-		return downloadFolder.getAbsolutePath();
-	}
-	
-	public String getArtistPath() {
-		return artistFolder.getAbsolutePath();
-	}
-	
-	/*
+	/**
+	 * Returns all albums in the database under the specified artist.
+	 * 
+	 * @param artist the artist to find albums for.
+	 */
 	public String[] getAlbums(String artist) {
+		// Cleaning up whitespace from artist name
+		artist = artist.trim();
+		
 		if(artist.isEmpty()) {
 			log.error("Artist String name is empty. No albums Returned.");
 			return null;
 		}
-		
-		// Cleaning up whitespace from String
-		// then converting to all lower case
-		artist = artist.trim();
-		artist = artist.toLowerCase();
-		// Now converting spaces to underscores.
-		// (All folder names have underscores instead of spaces so it must match that format)
-		artist = artist.replace(' ', '_');
 		
 		// Searching for the artist's folder in the database. If the artist is not found,
 		// then the artist is either not spelled correctly or does not exist in the
@@ -158,12 +162,12 @@ public class Storage {
 		String[] artists = getArtists();
 		String artistFolderName = "";
 		for(String currentFolderName: artists) {
-			// Cleaning up whitespace from String
-			// then converting to all lower case
+			// Cleaning up whitespace from folder name
 			currentFolderName = currentFolderName.trim();
-			currentFolderName = currentFolderName.toLowerCase();
+			// Replacing underscores with spaces
+			currentFolderName = currentFolderName.replace('_', ' ');
 			
-			if(currentFolderName.equals(artist)) {
+			if(currentFolderName.compareToIgnoreCase(artist) == 0) {
 				artistFolderName = currentFolderName;
 				break;
 			}
@@ -174,13 +178,68 @@ public class Storage {
 			return null;
 		} else {
 			// Gathering album names (that exist in the database) for the artist
-			// by looking at folder names in artist's folder
-			File artistFolder = new File(serverFolder.getAbsolutePath() + "/" + artistFolderName + "/");
-			log.debug("artist folder path = " + artistFolder.getAbsolutePath());
-			String[] albums = artistFolder.list();
-			if(albums.length == 0) log.debug("album list size is 0");
-			log.debug("returning album - should be good");
+			// by looking at folder names in that artist's folder
+			File artFolder = new File(artistFolder.getAbsolutePath() + "/" + artistFolderName + "/");
+			log.debug("artist folder path: " + artFolder.getAbsolutePath());
+			String[] albums = artFolder.list();
+			if(albums.length == 0) log.debug("album list size is 0.");
+			Arrays.sort(albums);
 			return albums;
 		}
-	}*/
+	}
+	
+	public String[] getSongs(String s) {
+		return null;
+	}
+	
+	public String[] searchArtists() {
+		return null;
+	}
+	
+	/**
+	 * Returns albums in the database for the specified artist that contain a given keyword.
+	 * 
+	 * @param artist the artist to find albums for
+	 * @param keyword the keyword the albums will be checked against
+	 * @return an array containing albums for the artist that contain the specified keyword
+	 */
+	public String[] searchAlbums(String artist, String keyword) {
+		String[] albums = getAlbums(artist);
+		ArrayList<String> refinedAlbums = new ArrayList<String>();
+		// Search for albums that contain they keyword specified
+		for(String album: albums){
+			if(album.contains(keyword)) refinedAlbums.add(album);
+		}
+		return (String[]) refinedAlbums.toArray();
+	}
+	
+	public String[] searchSongs() {
+		return null;
+	}
+	
+//	public String[][][] getData() {
+//		
+//		String[] artists = getArtists();
+//		
+//		String[][][] data = new String[artists.length][0][0];
+//		// Fill in artist data
+//		for(int artist = 0; artist < data.length; artist++) {
+//			data[artist] = artists[artist];
+//			for(int album = 0; album < data[artist].length; album++) {
+//				for(int track = 0; track < data[artist][album].length; track++) {
+//					
+//				}
+//			}
+//		}
+//		
+//		return null;
+//	}
+	
+	public String getDownloadPath() { 
+		return downloadFolder.getAbsolutePath();
+	}
+	
+	public String getArtistPath() {
+		return artistFolder.getAbsolutePath();
+	}
 }

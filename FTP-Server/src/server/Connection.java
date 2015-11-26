@@ -107,7 +107,7 @@ public class Connection implements Runnable {
 				sendInt(rand);
 				break;
 			case 1: // Client is requesting a test file (song).
-				if(sendFile("/home/clay/git/FTP-Server/FTP-Server/src/server/Aphex Twin - Delphium.mp3")) {
+				if(sendFile("/home/pi/muse-hysteria.mp3")) {
 					log.debug("File sent successfully.");
 				}
 				else {

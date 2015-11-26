@@ -5,7 +5,6 @@ import java.net.ServerSocket;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jaudiotagger.tag.FieldKey;
 
 public class Server {
 	
@@ -17,21 +16,18 @@ public class Server {
 	public static ServerSocket server;
 	public static Storage STORAGE;
 	
-	public Server(int port, int backlog) throws IOException {
+	public Server(final int port, final int backlog) throws IOException {
 		server = new ServerSocket(port, backlog);
 		isOpen = true;
 		
-		STORAGE = new Storage();
-		
-		STORAGE.sortFiles();
-		log.debug("done sorting");
+//		STORAGE = new Storage();
+//		
+//		// TEST
+//		STORAGE.sortFiles();
+//		log.debug("done sorting");
+//		// END TEST
 		
 		new ConnectionManager(this);
-		
-		// TESTING...
-		try {Thread.sleep(5000);}
-		catch(Exception e){}
-		
 	}
 	
 	public static boolean isOpen() {
