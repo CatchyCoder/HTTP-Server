@@ -1,14 +1,19 @@
 package server.binarytree;
 
-public class BinaryTree {
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jaudiotagger.tag.FieldKey;
 
-	// Node -> Key (data)
-	//		-> children (left, right child)
+import server.Track;
+
+public class BinaryTree {
+	/*
+	private static final Logger log = LogManager.getLogger(BinaryTree.class);
 	
-	public Node root;
+	private Node root;
 	
-	public void add(int value) {
-		Node nodeToAdd = new Node(value);
+	public void add(Track track) {
+		Node nodeToAdd = new Node(track);
 		
 		// Check if root node exists
 		if(root == null) root = nodeToAdd;
@@ -16,23 +21,27 @@ public class BinaryTree {
 	}
 	
 	private void traverseAndAddNode(Node currentNode, Node nodeToAdd) {
-		if(nodeToAdd.data < currentNode.data) {
+		if(nodeToAdd.getTrack().getID().com currentNode.getTrack()) {
 			// If leftChild does not exist
-			if(currentNode.leftChild == null) {
-				nodeToAdd.parentNode = currentNode;
-				currentNode.leftChild = nodeToAdd;
+			if(currentNode.getLeftChild() == null) {
+				nodeToAdd.setParent(currentNode);
+				currentNode.setLeftChild(nodeToAdd);
 			}
 			// Traverse the left child
-			else traverseAndAddNode(currentNode.leftChild, nodeToAdd);
+			else traverseAndAddNode(currentNode.getLeftChild(), nodeToAdd);
 		}
-		else if(nodeToAdd.data > currentNode.data) {
+		else if(nodeToAdd.getTrack() > currentNode.getTrack()) {
 			// If leftChild does not exist
-			if(currentNode.rightChild == null) {
-				nodeToAdd.parentNode = currentNode;
-				currentNode.rightChild = nodeToAdd;
+			if(currentNode.getRightChild() == null) {
+				nodeToAdd.setParent(currentNode);
+				currentNode.setRightChild(nodeToAdd);
 			}
 			// Traverse the right child
-			else traverseAndAddNode(currentNode.rightChild, nodeToAdd);
+			else traverseAndAddNode(currentNode.getRightChild(), nodeToAdd);
+		}
+		else {
+			// Node already exists in database
+			log.debug("Data, " + nodeToAdd.getTrack() + ", already exists in database. No action needed.");
 		}
 	}
 	
@@ -44,88 +53,82 @@ public class BinaryTree {
 	private void inOrderTraversal(Node node) {
 		// Keep going to the left child of every node until the
 		// bottom-left of the tree is hit
-		if(node.leftChild != null) {
+		if(node.getLeftChild() != null) {
 			// This will print the leftChild's data
-			inOrderTraversal(node.leftChild);
+			inOrderTraversal(node.getLeftChild());
 		}
 		
 		// Print out this nodes data
-		System.out.println(node.data);
+		System.out.println(node.getTrack());
 		
-		if(node.rightChild != null) {
+		if(node.getRightChild() != null) {
 			// This will print the leftChild's data
-			inOrderTraversal(node.rightChild);
+			inOrderTraversal(node.getRightChild());
 		}
 	}
 	
 	public boolean delete(int data) {
-		
 		Node nodeToDelete = find(data);
 		if(nodeToDelete == null) {
-			System.out.println("Could not delete node with data " + data + ", does not exist.");
+			log.debug("Node with data " + data + " was not found. No action needed.");
 			return false;
 		}
 		
 		// case 1: node has no children
-		else if(nodeToDelete.leftChild == null && nodeToDelete.rightChild == null) {
+		else if(nodeToDelete.getLeftChild() == null && nodeToDelete.getRightChild() == null) {
 			deleteNoChild(nodeToDelete);
 		}
 		// case 2: node has two children
-		else if(nodeToDelete.leftChild != null && nodeToDelete.rightChild != null) {
+		else if(nodeToDelete.getLeftChild() != null && nodeToDelete.getRightChild() != null) {
 			deleteTwoChildren(nodeToDelete);
 		}
 		// case 3: node has one child
-		else if(nodeToDelete.leftChild != null) {
-			deleteOneChild(nodeToDelete);
-		}
-		else if(nodeToDelete.rightChild != null) {
-			deleteOneChild(nodeToDelete); // Same?
-		}
+		else deleteOneChild(nodeToDelete);
 		return false;
 	}
 	
 	private void deleteNoChild(Node nodeToDelete) {
-		Node parent = nodeToDelete.parentNode;
+		Node parent = nodeToDelete.getParent();
 		// If nodeToDelete is right child
-		if(nodeToDelete.equals(parent.leftChild)) parent.leftChild = null;
+		if(nodeToDelete.equals(parent.getLeftChild())) parent.setLeftChild(null);
 		// If nodeToDelete is right child
-		else if(nodeToDelete.equals(parent.rightChild)) parent.rightChild = null;
+		else if(nodeToDelete.equals(parent.getRightChild())) parent.setRightChild(null);
 	}
 	
 	private void deleteOneChild(Node nodeToDelete) {
 		// Delete by making the nodeToDelete's parent node point to the
 		// nodeToDelete's child nodes
-		Node parent = nodeToDelete.parentNode;
+		Node parent = nodeToDelete.getParent();
 		// If nodeToDelete is left child
-		if(nodeToDelete.equals(parent.leftChild)) {
+		if(nodeToDelete.equals(parent.getLeftChild())) {
 			// Unsure if left or right child is null, so must check
-			if(nodeToDelete.leftChild != null) {
+			if(nodeToDelete.getLeftChild() != null) {
 				// Making parent node point to child of deleted node
-				parent.leftChild = nodeToDelete.leftChild;
+				parent.setLeftChild(nodeToDelete.getLeftChild());
 				// Making child of deleted node have correct parent
-				parent.leftChild.parentNode = parent;
+				parent.getLeftChild().setParent(parent);
 			}
 			else {
 				// Making parent node point to child of deleted node
-				parent.leftChild = nodeToDelete.rightChild;
+				parent.setLeftChild(nodeToDelete.getRightChild());
 				// Making child of deleted node have correct parent
-				parent.leftChild.parentNode = parent;
+				parent.getLeftChild().setParent(parent);
 			}
 		}
 		// If nodeToDelete is right child
-		else if(nodeToDelete.equals(parent.rightChild)) {
+		else if(nodeToDelete.equals(parent.getRightChild())) {
 			// Unsure if left or right child is null, so must check
-			if(nodeToDelete.leftChild != null) {
+			if(nodeToDelete.getLeftChild() != null) {
 				// Making parent node point to child of deleted node
-				parent.rightChild = nodeToDelete.leftChild;
+				parent.setRightChild(nodeToDelete.getLeftChild());
 				// Making child of deleted node have correct parent
-				parent.rightChild.parentNode = parent;
+				parent.getRightChild().setParent(parent);
 			}
 			else {
 				// Making parent node point to child of deleted node
-				parent.rightChild = nodeToDelete.rightChild;
+				parent.setRightChild(nodeToDelete.getRightChild());
 				// Making child of deleted node have correct parent
-				parent.rightChild.parentNode = parent;
+				parent.getRightChild().setParent(parent);
 			}
 		}
 	}
@@ -137,51 +140,67 @@ public class BinaryTree {
 		// After this the tree should still be correct
 		
 		// This is the node found at the bottom of the right child
-		Node minNode = minLeftTraversal(nodeToDelete.rightChild);
+		Node minNode = minLeftTraversal(nodeToDelete.getRightChild());
 		
 		// Now delete that bottom node
 		deleteOneChild(minNode);
 		
-		Node parent = nodeToDelete.parentNode;
+		Node parent = nodeToDelete.getParent();
 		// Copy all properties
-		minNode.parentNode = parent;
-		minNode.leftChild = nodeToDelete.leftChild;
-		minNode.rightChild = nodeToDelete.rightChild;
+		minNode.setParent(parent); // Assign parent
+		minNode.setLeftChild(nodeToDelete.getLeftChild()); // Assign left child
+		minNode.setRightChild(nodeToDelete.getRightChild()); // Assign right child
+		minNode.getLeftChild().setParent(minNode); // Assign left child's parent
+		minNode.getRightChild().setParent(minNode); // Assign right child's parent
 		
-		// Special case, nodeToDelete is the root and therefore has noS parent
-		if(nodeToDelete.parentNode == null) {
+		// Special case, nodeToDelete is the root and therefore has no parent
+		if(nodeToDelete.getParent() == null) {
 			root = minNode;
 		}
 		else {
 			// If nodeToDelete is left child
-			if(nodeToDelete.equals(parent.leftChild)) {
+			if(nodeToDelete.equals(parent.getLeftChild())) {
 				// switch the node
-				parent.leftChild = minNode;
+				parent.setLeftChild(minNode);
 			}
 			// If nodeToDelete is right child
-			else if(nodeToDelete.equals(parent.rightChild)) {
+			else if(nodeToDelete.equals(parent.getRightChild())) {
 				// Now switch the node
-				parent.rightChild = minNode;
+				parent.setRightChild(minNode);
 			}
 		}
 	}
 	
 	private Node minLeftTraversal(Node node) {
 		// Go to the left-most node under the node passed in
-		if(node.leftChild == null) return node;
-		return minLeftTraversal(node.leftChild);
+		if(node.getLeftChild() == null) return node;
+		return minLeftTraversal(node.getLeftChild());
 	}
 	
-	public Node find(int data) {
-		return findNode(root, new Node(data));
+	public String[] find(FieldKey key, final String keyword) {
+		/*
+		 * Program the ways in which the database will be searched,
+		 * then fine tune the find() algorithm to match that. Remember all
+		 * values that are searched begin with Strings (user searches
+		 * by artist, album, or song - or all).
+		 *
+		if(key.equals(FieldKey.ARTIST)) return findArtist(root, keyword);
+		if(key.equals(FieldKey.ALBUM)) return findAlbum(root, keyword);
+		if(key.equals(FieldKey.TITLE)) return findTitle(root, keyword);
 	}
 	
-	private Node findNode(Node search, Node nodeToFind) {
+	private Node findArtist(Node search, final String artist) {
 		if(search == null) return null;
 		
-		if(nodeToFind.data < search.data) return findNode(search.leftChild, nodeToFind);
-		if(nodeToFind.data > search.data) return findNode(search.rightChild, nodeToFind);
+		if(compare(nodeToFind, search) < 0) return findNode(search.getLeftChild(), nodeToFind);
+		if(compare(nodeToFind, search) > 0) return findNode(search.getRightChild(), nodeToFind);
 		// search and node have equal data
 		return search; // NOTE: must return search, NOT nodeToFind
 	}
+	
+	private int compare(final Node node1, final Node node2) {
+		String ID1 = node1.getTrack().getID();
+		String ID2 = node2.getTrack().getID();
+		return ID1.compareTo(ID2);
+	} */
 }

@@ -66,16 +66,28 @@ public class Storage {
 		// Creating required sub-folders for the server to store its files...
 		artistFolder = new File(serverPath + "/artist");
 		if(artistFolder.exists() || artistFolder.mkdirs()) log.debug(artistFolder.getAbsolutePath() + " path either exists or was created successfully.");
-		else log.error("Error creating " + artistFolder.getAbsolutePath() + ".");
+		else {
+			log.error("Error creating " + artistFolder.getAbsolutePath() + ".");
+			errorAndExit();
+		}
 		
 		downloadFolder = new File(serverPath + "/download");
 		if(downloadFolder.exists() || downloadFolder.mkdirs()) log.debug(downloadFolder.getAbsolutePath() + " path either exists or was created successfully.");
-		else log.error("Error creating " + downloadFolder.getAbsolutePath() + ".");
+		else {
+			log.error("Error creating " + downloadFolder.getAbsolutePath() + ".");
+			errorAndExit();
+		}
 		
 		log.debug("All required folders have been created successfully.");
 	}
 	
-	public String getField(FieldKey key, String filePath) {
+	private void errorAndExit() {
+		log.error("There were problems creating the required server folders. Possibly a permissions issue. Try running sudo or using root user.");
+		log.debug("Exiting application.");
+		System.exit(4);
+	}
+	
+	public static String getField(FieldKey key, String filePath) {
 		try {
 			AudioFile song = AudioFileIO.read(new File(filePath));
 			Tag tag = song.getTag();

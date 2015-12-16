@@ -12,22 +12,28 @@ public class Server {
 	
 	public static boolean isOpen = false;
 	
-	// The actual 'public server' that everyone can connect to
 	public static ServerSocket server;
+	private final ConnectionManager MANAGER;
 	public static Storage STORAGE;
 	
 	public Server(final int port, final int backlog) throws IOException {
+		// Setting up server, the external hard drive it uses, and then the
+		// server's connection manager which handles accepting and canceling connections.
 		server = new ServerSocket(port, backlog);
 		isOpen = true;
 		
-//		STORAGE = new Storage();
-//		
-//		// TEST
-//		STORAGE.sortFiles();
-//		log.debug("done sorting");
-//		// END TEST
+		STORAGE = new Storage();
 		
-		new ConnectionManager(this);
+		// TEST
+		STORAGE.sortFiles();
+		log.debug("Done sorting.");
+		// END TEST
+		
+		MANAGER = new ConnectionManager(this);
+	}
+	
+	public void start() {
+		MANAGER.listen();
 	}
 	
 	public static boolean isOpen() {
