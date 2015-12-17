@@ -9,8 +9,8 @@ public class Node {
 	private Node leftChild;
 	private Node rightChild;
 	
-	public Node(final String filePath) {
-		this.setTrack(new Track(filePath));
+	public Node(Track track) {
+		this.setTrack(track);
 	}
 
 	public Track getTrack() {

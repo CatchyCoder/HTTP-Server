@@ -62,6 +62,12 @@ public class ConnectionManager {
 		}
 	}
 	
+	public void disconnectAll() {
+		for(Connection connection: sockets) {
+			connection.disconnect();
+		}
+	}
+	
 	synchronized public void remove(Connection connection) {
 		sockets.remove(connection);
 	}

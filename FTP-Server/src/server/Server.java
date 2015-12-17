@@ -22,18 +22,24 @@ public class Server {
 		server = new ServerSocket(port, backlog);
 		isOpen = true;
 		
-		STORAGE = new Storage();
+		STORAGE = new Storage(this);
 		
-		// TEST
+		log.debug("Sorting files...");
 		STORAGE.sortFiles();
-		log.debug("Done sorting.");
-		// END TEST
+		log.debug("Done.");
+		log.debug("Loading database...");
+		STORAGE.loadDatabase();
+		log.debug("Done.");
 		
 		MANAGER = new ConnectionManager(this);
 	}
 	
 	public void start() {
 		MANAGER.listen();
+	}
+	
+	public void stop() {
+		MANAGER.disconnectAll();
 	}
 	
 	public static boolean isOpen() {

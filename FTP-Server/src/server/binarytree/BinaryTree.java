@@ -2,12 +2,11 @@ package server.binarytree;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jaudiotagger.tag.FieldKey;
 
 import server.Track;
 
 public class BinaryTree {
-	/*
+	
 	private static final Logger log = LogManager.getLogger(BinaryTree.class);
 	
 	private Node root;
@@ -21,7 +20,7 @@ public class BinaryTree {
 	}
 	
 	private void traverseAndAddNode(Node currentNode, Node nodeToAdd) {
-		if(nodeToAdd.getTrack().getID().com currentNode.getTrack()) {
+		if(compare(nodeToAdd, currentNode) < 0) {
 			// If leftChild does not exist
 			if(currentNode.getLeftChild() == null) {
 				nodeToAdd.setParent(currentNode);
@@ -30,8 +29,8 @@ public class BinaryTree {
 			// Traverse the left child
 			else traverseAndAddNode(currentNode.getLeftChild(), nodeToAdd);
 		}
-		else if(nodeToAdd.getTrack() > currentNode.getTrack()) {
-			// If leftChild does not exist
+		else if(compare(nodeToAdd, currentNode) > 0) {
+			// If rightChild does not exist
 			if(currentNode.getRightChild() == null) {
 				nodeToAdd.setParent(currentNode);
 				currentNode.setRightChild(nodeToAdd);
@@ -41,7 +40,7 @@ public class BinaryTree {
 		}
 		else {
 			// Node already exists in database
-			log.debug("Data, " + nodeToAdd.getTrack() + ", already exists in database. No action needed.");
+			log.debug("Data, " + nodeToAdd.getTrack().getID() + ", already exists in database. No action needed.");
 		}
 	}
 	
@@ -59,7 +58,7 @@ public class BinaryTree {
 		}
 		
 		// Print out this nodes data
-		System.out.println(node.getTrack());
+		System.out.println(node.getTrack().getID());
 		
 		if(node.getRightChild() != null) {
 			// This will print the leftChild's data
@@ -67,10 +66,10 @@ public class BinaryTree {
 		}
 	}
 	
-	public boolean delete(int data) {
-		Node nodeToDelete = find(data);
+	public boolean delete(Track track) {
+		Node nodeToDelete = find(track);
 		if(nodeToDelete == null) {
-			log.debug("Node with data " + data + " was not found. No action needed.");
+			log.debug("Node with data " + track + " was not found. No action needed.");
 			return false;
 		}
 		
@@ -177,30 +176,22 @@ public class BinaryTree {
 		return minLeftTraversal(node.getLeftChild());
 	}
 	
-	public String[] find(FieldKey key, final String keyword) {
-		/*
-		 * Program the ways in which the database will be searched,
-		 * then fine tune the find() algorithm to match that. Remember all
-		 * values that are searched begin with Strings (user searches
-		 * by artist, album, or song - or all).
-		 *
-		if(key.equals(FieldKey.ARTIST)) return findArtist(root, keyword);
-		if(key.equals(FieldKey.ALBUM)) return findAlbum(root, keyword);
-		if(key.equals(FieldKey.TITLE)) return findTitle(root, keyword);
+	public Node find(Track track) {
+		return findNode(root, new Node(track));
 	}
 	
-	private Node findArtist(Node search, final String artist) {
+	private Node findNode(Node search, Node nodeToFind) {
 		if(search == null) return null;
 		
 		if(compare(nodeToFind, search) < 0) return findNode(search.getLeftChild(), nodeToFind);
 		if(compare(nodeToFind, search) > 0) return findNode(search.getRightChild(), nodeToFind);
 		// search and node have equal data
-		return search; // NOTE: must return search, NOT nodeToFind
+		return search; // NOTE: must return search, NOT nodeToFind (as search has the full data for the Node object)
 	}
 	
 	private int compare(final Node node1, final Node node2) {
 		String ID1 = node1.getTrack().getID();
 		String ID2 = node2.getTrack().getID();
 		return ID1.compareTo(ID2);
-	} */
+	} 
 }
