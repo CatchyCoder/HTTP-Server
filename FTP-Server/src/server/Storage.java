@@ -27,8 +27,8 @@ public class Storage {
 	
 	private final Server SERVER;
 	
-	private final File artistFolder;
-	private final File downloadFolder;
+	private final File artistFolder; // The actual database
+	private final File downloadFolder; // A staging folder before files are placed into the database
 	private BinaryTree tree;
 	
 	/*
@@ -54,7 +54,7 @@ public class Storage {
 		
 		// Detecting if using Windows operating system, for debugging purposes
 		final String OS = System.getProperty("os.name").toLowerCase();
-		if(OS.contains("windows")) mountPath = "C://MusicServer";
+		if(OS.contains("windows")) mountPath = "C:/Users/owner1/Documents/MusicServer";
 		
 		// Full path to server's main folder
 		String serverPath = mountPath + mainFolder;
@@ -93,21 +93,9 @@ public class Storage {
 		log.debug("All required folders have been created successfully.");
 	}
 	
-	
-	
-	public static String getField(FieldKey key, String filePath) {
-		try {
-			AudioFile song = AudioFileIO.read(new File(filePath));
-			Tag tag = song.getTag();
-			return tag.getFirst(key);
-		} catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
-			log.error("Error getting field " + key + " for " + filePath, e);
-		}
-		return null;
-	}
-	
 	/**
-	 * Takes any residual files in the downloads folder and places them in the server's music database.
+	 * Takes any residual files in the downloads folder and places them in the server's music database. Files
+	 * are only added to the database if the file passes a certain test by using <code>checkFile(File, String)</code>.
 	 * This essentially updates the database and cleans out the downloads folder.
 	 */
 	public synchronized void sortFiles() {
@@ -123,6 +111,12 @@ public class Storage {
 				String extension = "";
 				if(dotIndex != -1) extension = songName.substring(dotIndex, songName.length());
 				
+				// Check file to make sure it is legitimate
+				if(!checkFile(song, extension)) {
+					log.debug("File " + song.getAbsolutePath() + " did not pass check test. File will NOT be added to database.");
+					return;
+				}
+				
 				// Retrieve artist, album, and name of downloaded song
 				String artist = getField(FieldKey.ARTIST, song.getAbsolutePath());
 				String album = getField(FieldKey.ALBUM, song.getAbsolutePath());
@@ -135,33 +129,92 @@ public class Storage {
 				title = title.replace(' ', '_').toLowerCase();
 				
 				// The new location to move the file
-				File newLocation = new File(artistFolder.getAbsolutePath() + "/" + artist + "/" + album + "/" + title + extension);
+				File newLocation = new File(artistFolder.getAbsolutePath() + "/" + artist + "/" + album);
+				File newFile = new File(newLocation.getAbsolutePath() + "/" + title + extension);
 				try {
 					// Create directory for new file
 					if(!newLocation.exists()) newLocation.mkdirs();
 					
 					// Move the file. If the file already exists, replace it.
-					Path path = Files.move(song.toPath(), newLocation.toPath(), StandardCopyOption.REPLACE_EXISTING);
+					Path path = Files.move(song.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 					log.debug("Created " + path);
 				} catch (IOException e) {
 					log.error("Error moving file " + song.getAbsolutePath() + " from downloads folder.", e);
 				}
+				
+				// The file has been moved into the database, now it will be added to the tree
+				tree.add(new Track(newFile.getAbsolutePath()));
 			} else {
 				log.error("File " + song.getAbsolutePath() + " could not be found.");
 			}
 		}
 	}
 	
-	public void loadDatabase() {
-		// TODO:
-		// Get artists - get albums - then create Track objects for each track under those artists and albums (just loop it)
-		// Store these Tracks in an arraylist, then use that arraylist to create the binary tree
-		// sort the list of Track objects alphabetically, then make the middle Track object the root of the tree
-		// (then find an efficient way to store it from there).
-		// When a client adds tracks, new Track objects will be created that are just added to the binary tree,
-		// don't recreate the tree - this will take too long.
-		// If the tree needs to be re-created, then just restart the program.
+	/**
+	 * Checks to make sure the specified file is not a directory, is a supported audio file format, and that
+	 * there are no issues reading track data from the file. Returns false otherwise.
+	 * 
+	 * <p>If false is returned, this means that the file did not pass the test and has therefore been deleted.
+	 * 
+	 * @param file the file to be checked
+	 * @param extension the extension for the specified file
+	 * @returns true if and only if the file is NOT a directory, is supported, and its track data can be read properly. False otherwise.
+	 */
+	private boolean checkFile(File file, String extension) {
+		// Checking if the file is a directory
+		if(file.isDirectory()) {
+			log.error("File " + file.getAbsolutePath() + " is a directory, and therefore cannot be moved into the database. Deleting folder");
+			if(file.delete()) log.error("Done.");
+			else log.error("There was a problem deleting the file.");
+			return false;
+		}
 		
+		// Checking to make sure that the file extension is a supported audio file format
+		if(	extension.equals(".mp3") || // Mp3
+				extension.equals(".mp4")  || // Mp4
+				extension.equals(".m4p")  ||
+				extension.equals(".m4a")  ||
+				extension.equals(".flac") || // FLAC
+				extension.equals(".ogg") || // Ogg Vorbis
+				extension.equals(".oga") ||
+				extension.equals(".wma") || // Wma
+				extension.equals(".wav") || // Wav
+				extension.equals(".ra") || // Real
+				extension.equals(".ram")) {
+			// The file is a supported format, attempt to retrieve song data from it
+			
+			// Retrieve artist, album, and name of downloaded song
+			String artist = getField(FieldKey.ARTIST, file.getAbsolutePath());
+			String album = getField(FieldKey.ALBUM, file.getAbsolutePath());
+			String title = getField(FieldKey.TITLE, file.getAbsolutePath());
+			
+			// If anything could not be read, note that there were issues with the file and delete it
+			if(artist == null || album == null || title == null) {
+				log.debug("There was a problem getting track data from " + file.getAbsolutePath() + ". Deleting file...");
+				if(file.delete()) log.error("Done.");
+				else log.error("There was a problem deleting the file.");
+				return false;
+			}
+			return true;
+		}
+		else {
+			// Incorrect file format
+			log.error("File " + file.getAbsolutePath() + " is not a supported audio file. Deleting file...");
+			
+			// Deleting file
+			if(file.delete()) log.debug("Done.");
+			else log.error("There was a problem deleting the file.");
+			return false;
+		}
+	}
+	
+	/**
+	 * Loads the music database into the Binary Search Tree. This is done by first sorting residual files
+	 * in the staging ("downloads") folder. Then the database is read using <code>retrieveFiles(String, ArrayList<String>)</code>.
+	 * Those files are then used to create <code>Track</code> objects. Those <code>Track</code> objects are then added to the 
+	 * binary search tree using <code>populateTree(Track[])</code>.
+	 */
+	public synchronized void loadDatabase() {		
 		// Make sure to move any residual download files into the database
 		sortFiles();
 		
@@ -185,13 +238,15 @@ public class Storage {
 		populateTree(tracks.toArray(new Track[tracks.size()]));
 		
 		tree.traverse();
-		
 	}
 	
 	/**
-	 * Scrapes the music server's database for all the music files it has, and returns
-	 * a list of each file's file path.
-	 * @return
+	 * Returns a list of file paths for each file located under the specified folder, and any sub-folders
+	 * that may be located in there.
+	 * 
+	 * @param rootFolder the folder with which to search for files
+	 * @param filePaths the array to populate with found file paths
+	 * @return list of file-paths for files under the specified folder
 	 */
 	private void retrieveFiles(String rootFolder, ArrayList<String> filePaths) {
 		File folder = new File(rootFolder);
@@ -206,89 +261,50 @@ public class Storage {
 		}
 	}
 	
+	/**
+	 * Creates a binary search tree to store the specified Track objects.
+	 * Since the the array of Tracks is in alphabetic order, a good way to populate the tree is
+	 * to put the middle track as the root. This leaves two track arrays, the tracks on the left of the index,
+	 * and those on the right of the index. The left and right tracks are also split in the middle (using the
+	 * middle track as the parent node). This process
+	 * is repeated until all tracks have populated the tree.
+	 * 
+	 * @param tracks the tracks to populate the tree with
+	 */
 	private void populateTree(Track[] tracks) {
-		// Creating binary search tree to store Track objects.
-		// Since the the array of Tracks is in alphabetic order, a good way to populate the tree is
-		// to put the middle track as the root, then take the left and right parts and make each "part's"
-		// middle track as the sub-root, and so on and so forth until the tree is populated with every track.
-		
+		// Finding the middle track in the current track array
 		int midIndex = (int)(tracks.length / 2);
+		// Adding the middle track to the tree
 		tree.add(tracks[midIndex]);
-		//  1 2 3 -4- 5 6
-		Track[] leftTracks = new Track[midIndex]; // Creating a list of tracks that will be on the left side of the middle track
-		Track[] rightTracks = new Track[tracks.length - (midIndex + 1)]; // Creating a list of tracks that will be on the right side of the middle track
+		
+		// Creating a list of tracks that will be on the left side of the middle track
+		Track[] leftTracks = new Track[midIndex];
+		// Creating a list of tracks that will be on the right side of the middle track
+		Track[] rightTracks = new Track[tracks.length - (midIndex + 1)]; 
 		
 		if(leftTracks.length > 0) {
 			// Populating left tracks
 			for(int n = 0; n < leftTracks.length; n++) leftTracks[n] = tracks[n];
+			// Continue to break the track array up
 			populateTree(leftTracks);
 		}
 		if(rightTracks.length > 0) {
 			// Populating right tracks
 			for(int n = 0, offset = midIndex + 1; n < rightTracks.length; n++) rightTracks[n] = tracks[n + offset];
+			// Continue to break the track array up
 			populateTree(rightTracks);
 		}
 	}
 	
-	/**
-	 * Returns all artists currently located in the database.
-	 */
-	private String[] getArtists() {
-		String[] artists = artistFolder.list();
-		
-		// Sort in alphabetical order
-		Arrays.sort(artists);
-		return artists;
-	}
-	
-	/**
-	 * Returns all albums currently in the database corresponding to the specified artist.
-	 * 
-	 * @param artist the artist to find albums for.
-	 */
-	private String[] getAlbums(String artist) {
-		// Cleaning up whitespace from artist name
-		artist = artist.trim();
-		
-		if(artist.isEmpty()) {
-			log.error("Artist String name is empty. NULL Returned.");
-			return null;
+	public static String getField(FieldKey key, String filePath) {
+		try {
+			AudioFile song = AudioFileIO.read(new File(filePath));
+			Tag tag = song.getTag();
+			return tag.getFirst(key);
+		} catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
+			log.error("Error getting field " + key + " for " + filePath, e);
 		}
-		
-		// Replacing artist String spaces with underscores (for folder names) and converting to all lower case
-		artist = artist.replace(' ', '_').toLowerCase();
-		File folder = new File(artistFolder.getAbsolutePath() + "/" + artist);
-		String[] albums = folder.list();
-		Arrays.sort(albums);
-		return albums;
-	}
-	
-	/**
-	 * Returns all track currently in the database corresponding to the specified artist and album.
-	 * 
-	 * @param artist the artist to find albums for.
-	 */
-	private String[] getTracks(String artist, String album) {
-		// Check to make sure that the artist actually has the album specified
-		File albumFolder = new File(artistFolder.getAbsolutePath() + "/" + artist + "/" + album);
-		if(!albumFolder.exists()) {
-			log.error("Artist, " + artist + ", or album, " + album + 
-					", does not exist in the database. Therefore " + albumFolder.getAbsolutePath() + " was not found to exist. NULL returned.");
-			return null;
-		}
-		
-		// The path exists, so return the track names...
-		// File names contain file extensions, so those are removed
-		String[] tracksWithExt = albumFolder.list();
-		String[] tracks = new String[tracksWithExt.length];
-		for(int n = 0; n < tracks.length; n++) {
-			String fileName = tracksWithExt[n];
-			int dotIndex = fileName.indexOf('.');
-			String trackName = fileName.substring(0, dotIndex);
-			tracks[n] = trackName.toLowerCase();
-		}
-		Arrays.sort(tracks);
-		return tracks;
+		return null;
 	}
 	
 	private void errorAndExit() {
@@ -306,39 +322,4 @@ public class Storage {
 	public String getArtistPath() {
 		return artistFolder.getAbsolutePath();
 	}
-	
-//	/**
-//	 * Returns albums in the database for the specified artist that contain a given keyword.
-//	 * 
-//	 * @param artist the artist to find albums for
-//	 * @param keyword the keyword the albums will be checked against
-//	 * @return an array containing albums for the artist that contain the specified keyword
-//	 */
-//	public String[] searchAlbums(String artist, String keyword) {
-//		String[] albums = getAlbums(artist);
-//		ArrayList<String> refinedAlbums = new ArrayList<String>();
-//		// Search for albums that contain they keyword specified
-//		for(String album: albums){
-//			if(album.contains(keyword)) refinedAlbums.add(album);
-//		}
-//		return (String[]) refinedAlbums.toArray();
-//	}
-	
-//	public String[][][] getData() {
-//		
-//		String[] artists = getArtists();
-//		
-//		String[][][] data = new String[artists.length][0][0];
-//		// Fill in artist data
-//		for(int artist = 0; artist < data.length; artist++) {
-//			data[artist] = artists[artist];
-//			for(int album = 0; album < data[artist].length; album++) {
-//				for(int track = 0; track < data[artist][album].length; track++) {
-//					
-//				}
-//			}
-//		}
-//		
-//		return null;
-//	}
 }

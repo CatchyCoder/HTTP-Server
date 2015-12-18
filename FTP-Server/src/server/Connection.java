@@ -111,6 +111,9 @@ public class Connection implements Runnable {
 		case 1: // Client is requesting a test file (song).
 			sendFile("/home/pi/server/muse-hysteria.mp3");
 			break;
+		case 2: // Client is adding a file to the database
+			downloadFile();
+			break;
 		default:
 			log.error("Command [" + command + "] is invalid.");
 		}
@@ -153,7 +156,7 @@ public class Connection implements Runnable {
 		log.debug("Setting up file streams...");
 		try(
 			// For storing the incoming file (saving)
-			FileOutputStream fOutput = new FileOutputStream(Server.STORAGE.getDownloadPath());
+			FileOutputStream fOutput = new FileOutputStream(Server.STORAGE.getDownloadPath() + "/abc.mp3"); // TODO: CHANGE ME!!!!!!!!
 			BufferedOutputStream bOutput = new BufferedOutputStream(fOutput)
 		) {
 			fOutput.flush();
@@ -168,7 +171,7 @@ public class Connection implements Runnable {
 			int bufferSize = 1024 * 8;
 			byte[] bytes = new byte[bufferSize];
 			
-			// Getting file size from server
+			// Getting file size from client
 			long fileSize;
 			DataInputStream dInput = (DataInputStream) getInput(DataInputStream.class);
 			if((fileSize = dInput.readLong()) == -1) {
