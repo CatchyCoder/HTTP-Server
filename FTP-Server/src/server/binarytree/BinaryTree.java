@@ -1,5 +1,7 @@
 package server.binarytree;
 
+import java.util.ArrayList;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -10,13 +12,54 @@ public class BinaryTree {
 	private static final Logger log = LogManager.getLogger(BinaryTree.class);
 	
 	private Node root;
+	private ArrayList<Node> nodes = new ArrayList<Node>();
 	
 	public void add(Track track) {
 		Node nodeToAdd = new Node(track);
 		
 		// Check if root node exists
-		if(root == null) root = nodeToAdd;
+		if(root == null) {
+			root = nodeToAdd;
+			nodes.add(root);
+		}
 		else traverseAndAddNode(root, nodeToAdd);
+	}
+	
+	/**
+	 * A "smart" add function that adds multiple tracks to the binary tree in a way that attempts to keep the binary tree efficient. This 
+	 * assumes the tracks are in alphabetical order.
+	 * 
+	 * <p>Since the the array of Tracks is in alphabetic order, a good way to populate the tree is
+	 * to put the middle track as the root. This leaves two track arrays, the tracks on the left of the index,
+	 * and those on the right of the index. The left and right tracks are also split in the middle (using the
+	 * middle track as the parent node). This process
+	 * is repeated until all tracks have been added to the tree.
+	 * 
+	 * @param tracks the tracks to be added
+	 */
+	public void add(Track[] tracks) {
+		// Finding the middle track in the current track array
+		int midIndex = (int)(tracks.length / 2);
+		// Adding the middle track to the tree
+		add(tracks[midIndex]);
+		
+		// Creating a list of tracks that will be on the left side of the middle track
+		Track[] leftTracks = new Track[midIndex];
+		// Creating a list of tracks that will be on the right side of the middle track
+		Track[] rightTracks = new Track[tracks.length - (midIndex + 1)]; 
+		
+		if(leftTracks.length > 0) {
+			// Populating left tracks
+			for(int n = 0; n < leftTracks.length; n++) leftTracks[n] = tracks[n];
+			// Continue to break the track array up
+			add(leftTracks);
+		}
+		if(rightTracks.length > 0) {
+			// Populating right tracks
+			for(int n = 0, offset = midIndex + 1; n < rightTracks.length; n++) rightTracks[n] = tracks[n + offset];
+			// Continue to break the track array up
+			add(rightTracks);
+		}
 	}
 	
 	private void traverseAndAddNode(Node currentNode, Node nodeToAdd) {
@@ -25,6 +68,7 @@ public class BinaryTree {
 			if(currentNode.getLeftChild() == null) {
 				nodeToAdd.setParent(currentNode);
 				currentNode.setLeftChild(nodeToAdd);
+				nodes.add(nodeToAdd);
 			}
 			// Traverse the left child
 			else traverseAndAddNode(currentNode.getLeftChild(), nodeToAdd);
@@ -34,6 +78,7 @@ public class BinaryTree {
 			if(currentNode.getRightChild() == null) {
 				nodeToAdd.setParent(currentNode);
 				currentNode.setRightChild(nodeToAdd);
+				nodes.add(nodeToAdd);
 			}
 			// Traverse the right child
 			else traverseAndAddNode(currentNode.getRightChild(), nodeToAdd);
@@ -66,11 +111,11 @@ public class BinaryTree {
 		}
 	}
 	
-	public boolean delete(Track track) {
+	public void delete(Track track) {
 		Node nodeToDelete = find(track);
 		if(nodeToDelete == null) {
 			log.debug("Node with data " + track + " was not found. No action needed.");
-			return false;
+			return;
 		}
 		
 		// case 1: node has no children
@@ -83,7 +128,9 @@ public class BinaryTree {
 		}
 		// case 3: node has one child
 		else deleteOneChild(nodeToDelete);
-		return false;
+		
+		// Remove the node from the list of nodes
+		nodes.remove(nodes.indexOf(nodeToDelete));
 	}
 	
 	private void deleteNoChild(Node nodeToDelete) {
@@ -193,5 +240,9 @@ public class BinaryTree {
 		String ID1 = node1.getTrack().getID();
 		String ID2 = node2.getTrack().getID();
 		return ID1.compareTo(ID2);
-	} 
+	}
+	
+	public ArrayList<Node> getNodes() {
+		return nodes;
+	}
 }

@@ -17,21 +17,15 @@ public class Server {
 	public static Storage STORAGE;
 	
 	public Server(final int port, final int backlog) throws IOException {
-		// Setting up server, the external hard drive it uses, and then the
-		// server's connection manager which handles accepting and canceling connections.
+		// Loads the database and binary search tree
+		STORAGE = new Storage();
+		// Setting up server
 		server = new ServerSocket(port, backlog);
-		isOpen = true;
-		
-		STORAGE = new Storage(this);
-		
-		log.debug("Sorting files...");
-		STORAGE.sortFiles();
-		log.debug("Done.");
-		log.debug("Loading database...");
-		STORAGE.loadDatabase();
-		log.debug("Done.");
-		
+		// Setting up the connection manager which handles connections
 		MANAGER = new ConnectionManager(this);
+		
+		isOpen = true;
+		log.debug("Server setup is complete.");
 	}
 	
 	public void start() {

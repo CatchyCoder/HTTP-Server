@@ -206,8 +206,8 @@ public class Connection implements Runnable {
 		}
 		log.debug("try-with-resources block executed. File streams should be closed.");
 		
-		// Placing downloaded file in correct artist folder
-		Server.STORAGE.sortFiles();
+		// Updating server with downloaded file
+		Server.STORAGE.update();
 	}
 	
 	public void sendFile(String filePath) {

@@ -2,7 +2,7 @@ package server;
 
 import org.jaudiotagger.tag.FieldKey;
 
-public class Track {
+public class Track implements Comparable<Track> {
 
 	private final String title;
 	private final String album;
@@ -14,7 +14,10 @@ public class Track {
 	// stored into the binary tree.
 	private final String ID;
 	
+	private final String PATH;
+	
 	public Track(final String filePath) {
+		this.PATH = filePath;
 		title = Storage.getField(FieldKey.TITLE, filePath);
 		album = Storage.getField(FieldKey.ALBUM, filePath);
 		artist = Storage.getField(FieldKey.ARTIST, filePath);
@@ -39,5 +42,16 @@ public class Track {
 
 	public String getID() {
 		return ID;
+	}
+	
+	public String getPath() {
+		return PATH;
+	}
+
+	@Override
+	public int compareTo(Track track) {
+		String ID1 = getID();
+		String ID2 = track.getID();
+		return ID1.compareTo(ID2);
 	}
 }

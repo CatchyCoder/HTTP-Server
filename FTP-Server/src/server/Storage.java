@@ -20,41 +20,36 @@ import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.TagException;
 
 import server.binarytree.BinaryTree;
+import server.binarytree.Node;
 
 public class Storage {
 	
 	private static final Logger log = LogManager.getLogger(Storage.class);
-	
-	private final Server SERVER;
-	
-	private final File artistFolder; // The actual database
+		
+	private final File databaseFolder; // The actual database
 	private final File downloadFolder; // A staging folder before files are placed into the database
-	private BinaryTree tree;
+	private final BinaryTree tree;
 	
 	/*
-	 * The "artist" folder can never be manually modified, it should only be modified
+	 * The "database" folder can never be manually modified, it should only be modified
 	 * by the program and the program only. The program will take care of empty folders,
 	 * misspelled artists, albums, and songs. So there should be no need to manually edit
-	 * the server's "artist" folder. If one wishes to add songs manually to the server,
+	 * the server's "database" folder. If one wishes to add songs manually to the server,
 	 * they can do so by moving song files to the server's "download" folder. This folder is where songs go
 	 * that have been downloaded from clients and are waiting to be sorted in into the correct
 	 * artist and album folders. By dropping files into this folder, the program will automatically
 	 * sort them whenever it performs it's next sortFiles() method (usually right after a song is downloaded).
-	 * This ensures that the "artist" folder is never modified by hand. The program should also do periodic
+	 * This ensures that the "database" folder is never modified by hand. The program should also do periodic
 	 * sweeps in the download folder to sort leftover music in there.
 	 */
 	
-	public Storage(Server server) {
-		this.SERVER = server;
+	public Storage() {
+		tree = new BinaryTree();
 		
 		// The Raspberry Pi's mount path to the external drive
 		String mountPath = "/mnt/ext500GB";
 		// Main server folder, where all server files will be stored
 		String mainFolder = "/server";
-		
-		// Detecting if using Windows operating system, for debugging purposes
-		final String OS = System.getProperty("os.name").toLowerCase();
-		if(OS.contains("windows")) mountPath = "C:/Users/owner1/Documents/MusicServer";
 		
 		// Full path to server's main folder
 		String serverPath = mountPath + mainFolder;
@@ -76,10 +71,10 @@ public class Storage {
 		log.debug("External drive appears to be mounted.");
 		
 		// Creating required sub-folders for the server to store its files...
-		artistFolder = new File(serverPath + "/artist");
-		if(artistFolder.exists() || artistFolder.mkdirs()) log.debug(artistFolder.getAbsolutePath() + " path either exists or was created successfully.");
+		databaseFolder = new File(serverPath + "/database");
+		if(databaseFolder.exists() || databaseFolder.mkdirs()) log.debug(databaseFolder.getAbsolutePath() + " path either exists or was created successfully.");
 		else {
-			log.error("Error creating " + artistFolder.getAbsolutePath() + ".");
+			log.error("Error creating " + databaseFolder.getAbsolutePath() + ".");
 			errorAndExit();
 		}
 		
@@ -91,25 +86,51 @@ public class Storage {
 		}
 		
 		log.debug("All required folders have been created successfully.");
+		
+		// Load the database and tree
+		update();
+		
+//		// Sleep 45 seconds in order to give time to add new files to download folder
+//		try {
+//			log.debug("Now sleeping...");
+//			Thread.sleep(1000 * 45);
+//			log.debug("Done.");
+//		} catch(Exception e) {
+//			log.error("Could not sleep :/");
+//		}
+//		
+//		update();
+	}
+	
+	public synchronized void update() {
+		updateDatabase();
+		updateTree();
 	}
 	
 	/**
 	 * Takes any residual files in the downloads folder and places them in the server's music database. Files
 	 * are only added to the database if the file passes a certain test by using <code>checkFile(File, String)</code>.
 	 * This essentially updates the database and cleans out the downloads folder.
+	 * 
+	 * <p> NOTE: The file is only moved into the database folder. It will NOT be added to the binary search tree.
 	 */
-	public synchronized void sortFiles() {
-		String[] songNames = downloadFolder.list();
+	public synchronized void updateDatabase() {
+		log.debug("Updating database...");
+		
+		ArrayList<String> songPaths = new ArrayList<String>();
+		// Populating list of song paths
+		retrieveFiles(getDownloadPath(), songPaths, false);
 		
 		// Iterate through each file in the downloads folder and place them
 		// in their corresponding artist folder.
-		for(String songName: songNames) {
-			File song = new File(downloadFolder.getAbsolutePath() + "/" + songName);
+		for(String songPath: songPaths) {
+			File song = new File(songPath);
 			if(song.exists()) {
+				String fileName = song.getName();
 				// Parse file name to find out extension type
-				int dotIndex = songName.lastIndexOf('.');
+				int dotIndex = fileName.lastIndexOf('.');
 				String extension = "";
-				if(dotIndex != -1) extension = songName.substring(dotIndex, songName.length());
+				if(dotIndex != -1) extension = fileName.substring(dotIndex, fileName.length());
 				
 				// Check file to make sure it is legitimate
 				if(!checkFile(song, extension)) {
@@ -129,24 +150,75 @@ public class Storage {
 				title = title.replace(' ', '_').toLowerCase();
 				
 				// The new location to move the file
-				File newLocation = new File(artistFolder.getAbsolutePath() + "/" + artist + "/" + album);
-				File newFile = new File(newLocation.getAbsolutePath() + "/" + title + extension);
+				File newDirectory = new File(databaseFolder.getAbsolutePath() + "/" + artist + "/" + album);
+				File newFile = new File(newDirectory.getAbsolutePath() + "/" + title + extension);
 				try {
 					// Create directory for new file
-					if(!newLocation.exists()) newLocation.mkdirs();
+					if(!newDirectory.exists()) newDirectory.mkdirs();
 					
 					// Move the file. If the file already exists, replace it.
 					Path path = Files.move(song.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 					log.debug("Created " + path);
 				} catch (IOException e) {
-					log.error("Error moving file " + song.getAbsolutePath() + " from downloads folder.", e);
+					log.error("Error moving file " + songPath + " from downloads folder.", e);
 				}
 				
-				// The file has been moved into the database, now it will be added to the tree
-				tree.add(new Track(newFile.getAbsolutePath()));
+				// NOTE: The file has been moved into the database, but NOT into the binary search tree.
+				
 			} else {
 				log.error("File " + song.getAbsolutePath() + " could not be found.");
 			}
+		}
+		log.debug("Done.");
+		
+		// All files have either been moved into the database or deleted. However there may be folders
+		// left over that we will delete.
+		
+		// First check to make sure there are no files left, just directories
+		ArrayList<String> files = new ArrayList<String>();
+		// Populating files list
+		retrieveFiles(getDownloadPath(), files, false);
+		if(files.size() > 0) {
+			log.error("Files still remained after cleaning downloads folder: ");
+			for(String file: files) {
+				log.error(file + " remained.");
+			}
+			log.error("Cleaning of downloads folder will be CANCELLED.");
+			return;
+		}
+		
+		log.debug("Removing empty folders in " + getDownloadPath());
+		// If there are only directories left, remove them
+		File downloadFolder = new File(getDownloadPath());
+		String[] items = downloadFolder.list();
+		
+		for(String item: items) {
+			// Delete each folder regardless of its contents
+			deleteFolder(getDownloadPath() + "/" + item);
+		}
+		
+		log.debug("Done.");
+	}
+	
+	/**
+	 * Recursively deletes a folder and any files or folders that it may contain.
+	 * 
+	 * @param directory
+	 */
+	private void deleteFolder(String directory) {
+		File item = new File(directory);
+		
+		// Check if path is a file, if so delete it
+		if(!item.isDirectory()) item.delete();
+		else {
+			// Remove any sub-folder and files
+			String[] subItems = item.list();
+			for(String itemName: subItems) {
+				deleteFolder(item.getAbsolutePath() + "/" + itemName);
+			}
+			
+			// Then delete the folder
+			item.delete();
 		}
 	}
 	
@@ -209,90 +281,74 @@ public class Storage {
 	}
 	
 	/**
+	 * TODO: UPDATE ME
 	 * Loads the music database into the Binary Search Tree. This is done by first sorting residual files
-	 * in the staging ("downloads") folder. Then the database is read using <code>retrieveFiles(String, ArrayList<String>)</code>.
+	 * in the staging ("downloads") folder. Then the database is read using <code>retrieveFiles(String, ArrayList<String>, boolean)</code>.
 	 * Those files are then used to create <code>Track</code> objects. Those <code>Track</code> objects are then added to the 
 	 * binary search tree using <code>populateTree(Track[])</code>.
 	 */
-	public synchronized void loadDatabase() {		
-		// Make sure to move any residual download files into the database
-		sortFiles();
+	public synchronized void updateTree() {
+		log.debug("Updating binary search tree...");
 		
-		ArrayList<Track> tracks = new ArrayList<Track>();
-		ArrayList<String> filePaths = new ArrayList<String>();
-		// Populating filePaths array
-		retrieveFiles(getArtistPath(), filePaths);
+		// Creating an array to store file paths for files currently in the database
+		ArrayList<String> databasePaths = new ArrayList<String>();
+		// Populating that array
+		retrieveFiles(getDatabasePath(), databasePaths, false);
 		
-		// Sorting in alphabetical order
-		String[] paths = filePaths.toArray(new String[filePaths.size()]);
-		Arrays.sort(paths);
-		
-		// Creating Track objects
-		for(String filePath: paths) {
-			Track track = new Track(filePath);
-			tracks.add(track);
+		// Creating an array to store file paths for files currently in the binary tree
+		ArrayList<String> treePaths = new ArrayList<String>();
+		// Populating that array
+		for(Node node: tree.getNodes()) {
+			treePaths.add(node.getTrack().getPath());
 		}
 		
-		// Populate the binary tree with created Track objects
-		tree = new BinaryTree();
-		populateTree(tracks.toArray(new Track[tracks.size()]));
+		// Any paths that already exist in the binary tree are not needed, and therefore will be removed.
+		// This leaves only the file paths that need to be added to the tree left.
+		databasePaths.removeAll(treePaths);
+		ArrayList<String> newPaths = databasePaths;
+		System.out.println("new paths to add to tree: " + databasePaths);
 		
-		tree.traverse();
+		// Check if there are still paths to add to the tree
+		if(newPaths.size() > 0) {
+			// Now use those paths to create new Track objects
+			ArrayList<Track> tracks = new ArrayList<Track>();
+			for(String path: newPaths) {
+				Track track = new Track(path);
+				tracks.add(track);
+			}
+			Track[] trackArray = tracks.toArray(new Track[tracks.size()]);
+			// Sorting in alphabetical order
+			Arrays.sort(trackArray);
+			
+			// Now adding those tracks to the tree
+			tree.add(trackArray);
+		}
+		log.debug("Done.");
 	}
 	
 	/**
 	 * Returns a list of file paths for each file located under the specified folder, and any sub-folders
-	 * that may be located in there.
+	 * that may be located in there. Pass in true for getDirectories if you wish for directories to be included
+	 * in the returned list.
 	 * 
 	 * @param rootFolder the folder with which to search for files
 	 * @param filePaths the array to populate with found file paths
+	 * @param getDirectories true if directories should be included in the list
 	 * @return list of file-paths for files under the specified folder
 	 */
-	private void retrieveFiles(String rootFolder, ArrayList<String> filePaths) {
+	private void retrieveFiles(String rootFolder, ArrayList<String> filePaths, boolean getDirectories) {
 		File folder = new File(rootFolder);
 		String[] subItems = folder.list(); // Getting list of sub-directories, these could be files or folders
 		
 		// Look at each file/folder in the list. If the item is a file, add it to the file-path array.
-		// If it is a folder, then recursively retrieveFiles() from that folder.
+		// If it is a folder, then only add it if getDirectories is true, and recursively retrieveFiles() from that folder.
 		for(String itemName: subItems) {
 			File item = new File(rootFolder + "/" + itemName);
-			if(item.isDirectory()) retrieveFiles(item.getAbsolutePath(), filePaths);
+			if(item.isDirectory()) {
+				if(getDirectories) filePaths.add(item.getAbsolutePath());
+				retrieveFiles(item.getAbsolutePath(), filePaths, getDirectories);
+			}
 			else filePaths.add(item.getAbsolutePath());
-		}
-	}
-	
-	/**
-	 * Creates a binary search tree to store the specified Track objects.
-	 * Since the the array of Tracks is in alphabetic order, a good way to populate the tree is
-	 * to put the middle track as the root. This leaves two track arrays, the tracks on the left of the index,
-	 * and those on the right of the index. The left and right tracks are also split in the middle (using the
-	 * middle track as the parent node). This process
-	 * is repeated until all tracks have populated the tree.
-	 * 
-	 * @param tracks the tracks to populate the tree with
-	 */
-	private void populateTree(Track[] tracks) {
-		// Finding the middle track in the current track array
-		int midIndex = (int)(tracks.length / 2);
-		// Adding the middle track to the tree
-		tree.add(tracks[midIndex]);
-		
-		// Creating a list of tracks that will be on the left side of the middle track
-		Track[] leftTracks = new Track[midIndex];
-		// Creating a list of tracks that will be on the right side of the middle track
-		Track[] rightTracks = new Track[tracks.length - (midIndex + 1)]; 
-		
-		if(leftTracks.length > 0) {
-			// Populating left tracks
-			for(int n = 0; n < leftTracks.length; n++) leftTracks[n] = tracks[n];
-			// Continue to break the track array up
-			populateTree(leftTracks);
-		}
-		if(rightTracks.length > 0) {
-			// Populating right tracks
-			for(int n = 0, offset = midIndex + 1; n < rightTracks.length; n++) rightTracks[n] = tracks[n + offset];
-			// Continue to break the track array up
-			populateTree(rightTracks);
 		}
 	}
 	
@@ -311,7 +367,6 @@ public class Storage {
 		log.error("There were problems creating the required server folders. Possibly a permissions issue. "
 				+ "Try running with sudo or using root user.");
 		log.debug("Exiting application.");
-		SERVER.stop();
 		System.exit(4);
 	}
 	
@@ -319,7 +374,7 @@ public class Storage {
 		return downloadFolder.getAbsolutePath();
 	}
 	
-	public String getArtistPath() {
-		return artistFolder.getAbsolutePath();
+	public String getDatabasePath() {
+		return databaseFolder.getAbsolutePath();
 	}
 }
