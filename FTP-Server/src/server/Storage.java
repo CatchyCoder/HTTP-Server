@@ -31,86 +31,71 @@ public class Storage {
 	private final BinaryTree tree;
 	
 	/*
-	 * The "database" folder can never be manually modified, it should only be modified
-	 * by the program and the program only. The program will take care of empty folders,
-	 * misspelled artists, albums, and songs. So there should be no need to manually edit
-	 * the server's "database" folder. If one wishes to add songs manually to the server,
-	 * they can do so by moving song files to the server's "download" folder. This folder is where songs go
-	 * that have been downloaded from clients and are waiting to be sorted in into the correct
-	 * artist and album folders. By dropping files into this folder, the program will automatically
-	 * sort them whenever it performs it's next sortFiles() method (usually right after a song is downloaded).
-	 * This ensures that the "database" folder is never modified by hand. The program should also do periodic
-	 * sweeps in the download folder to sort leftover music in there.
+	 * TODO:
+	 * + Periodically clean database of empty folders that may be caused by songs having a field renamed. (Does it need this if clients cannot delete or edit files?)
+	 * 
 	 */
 	
 	public Storage() {
 		tree = new BinaryTree();
 		
 		// The Raspberry Pi's mount path to the external drive
-		String mountPath = "/mnt/ext500GB";
-		// Main server folder, where all server files will be stored
-		String mainFolder = "/server";
+		File mount = new File("/mnt/ext500GB");
+		// Main server folder on the external drive, where all server files will be stored
+		String mainFolder = "server";
 		
 		// Full path to server's main folder
-		String serverPath = mountPath + mainFolder;
+		File server = new File(mount.getAbsolutePath() + "/" + mainFolder);
+		
+		// The actual database folder where music files are stored
+		databaseFolder = new File(server.getAbsolutePath() + "/database");
+		// The staging folder where downloaded files are placed
+		downloadFolder = new File(server.getAbsolutePath() + "/download");
 		
 		// Checking if external drive has been mounted. This assumes that the server folder
 		// on the external drive has already been created (could be an empty folder or not).
 		// If mounted then server folder is visible, else unmounted.
-		if(!new File(mountPath).exists()) {
+		if(!mount.exists()) {
 			// The mount path has not been created, therefore the external drive is not mounted.
-			log.error("Mount path, " + mountPath +", for external drive could not be found. Exiting application");
+			log.error("Mount path, " + mount.getAbsolutePath() +", for external drive could not be found. Exiting application");
 			System.exit(2);
 		}
-		log.debug("Mount path, " + mountPath +", found.");
-		if(!new File(serverPath).exists()) {
+		log.debug("Mount path, " + mount.getAbsolutePath() +", found.");
+		if(!server.exists()) {
 			// The mount path was created, but the external drive was not mounted.
-			log.error("The external drive does not appear to be mounted (Main folder " + mainFolder + " does not exist). Exiting application");
+			log.error("The external drive does not appear to be mounted (Main folder \"" + mainFolder + "\" does not exist). Exiting application");
 			System.exit(3);
 		}
 		log.debug("External drive appears to be mounted.");
 		
 		// Creating required sub-folders for the server to store its files...
-		databaseFolder = new File(serverPath + "/database");
-		if(databaseFolder.exists() || databaseFolder.mkdirs()) log.debug(databaseFolder.getAbsolutePath() + " path either exists or was created successfully.");
-		else {
-			log.error("Error creating " + databaseFolder.getAbsolutePath() + ".");
-			errorAndExit();
+		log.debug("Checking existence of required server folders...");
+		try {
+			// Creating database and download folder
+			if(!(databaseFolder.exists() || databaseFolder.mkdirs())) log.error("Error creating " + databaseFolder.getAbsolutePath());
+			if(!(downloadFolder.exists() || downloadFolder.mkdirs())) log.error("Error creating " + downloadFolder.getAbsolutePath());
+			
+		} catch(SecurityException e) {
+			log.error("There were problems creating the required server folders. Possibly a permissions issue. Try running with sudo or using root user.", e);
+			System.exit(4);
 		}
+		log.debug("Done.");
 		
-		downloadFolder = new File(serverPath + "/download");
-		if(downloadFolder.exists() || downloadFolder.mkdirs()) log.debug(downloadFolder.getAbsolutePath() + " path either exists or was created successfully.");
-		else {
-			log.error("Error creating " + downloadFolder.getAbsolutePath() + ".");
-			errorAndExit();
-		}
-		
-		log.debug("All required folders have been created successfully.");
-		
-		// Load the database and tree
+		// Load the database and search tree
 		update();
-		
-//		// Sleep 45 seconds in order to give time to add new files to download folder
-//		try {
-//			log.debug("Now sleeping...");
-//			Thread.sleep(1000 * 45);
-//			log.debug("Done.");
-//		} catch(Exception e) {
-//			log.error("Could not sleep :/");
-//		}
-//		
-//		update();
 	}
 	
+	/**
+	 * Updates both the database and search tree. This is equivalent to running <code>updateDatabase()</code> and <code>updateTree()</code>, respectively.
+	 */
 	public synchronized void update() {
 		updateDatabase();
 		updateTree();
 	}
 	
 	/**
-	 * Takes any residual files in the downloads folder and places them in the server's music database. Files
-	 * are only added to the database if the file passes a certain test by using <code>checkFile(File, String)</code>.
-	 * This essentially updates the database and cleans out the downloads folder.
+	 * Takes all files within the downloads folder and runs each one through a test. If the test is passed, then the file will be added to
+	 * the database. Otherwise the file will be deleted. This updates the database and cleans out the downloads folder.
 	 * 
 	 * <p> NOTE: The file is only moved into the database folder. It will NOT be added to the binary search tree.
 	 */
@@ -131,6 +116,7 @@ public class Storage {
 				int dotIndex = fileName.lastIndexOf('.');
 				String extension = "";
 				if(dotIndex != -1) extension = fileName.substring(dotIndex, fileName.length());
+				extension = extension.toLowerCase();
 				
 				// Check file to make sure it is legitimate
 				if(!checkFile(song, extension)) {
@@ -281,11 +267,8 @@ public class Storage {
 	}
 	
 	/**
-	 * TODO: UPDATE ME
-	 * Loads the music database into the Binary Search Tree. This is done by first sorting residual files
-	 * in the staging ("downloads") folder. Then the database is read using <code>retrieveFiles(String, ArrayList<String>, boolean)</code>.
-	 * Those files are then used to create <code>Track</code> objects. Those <code>Track</code> objects are then added to the 
-	 * binary search tree using <code>populateTree(Track[])</code>.
+	 * Reads the track files contained in the database. Newly existing track files are then added to the binary search tree.
+	 * This brings the tree up to date with the current database.
 	 */
 	public synchronized void updateTree() {
 		log.debug("Updating binary search tree...");
@@ -306,7 +289,6 @@ public class Storage {
 		// This leaves only the file paths that need to be added to the tree left.
 		databasePaths.removeAll(treePaths);
 		ArrayList<String> newPaths = databasePaths;
-		System.out.println("new paths to add to tree: " + databasePaths);
 		
 		// Check if there are still paths to add to the tree
 		if(newPaths.size() > 0) {
@@ -361,13 +343,6 @@ public class Storage {
 			log.error("Error getting field " + key + " for " + filePath, e);
 		}
 		return null;
-	}
-	
-	private void errorAndExit() {
-		log.error("There were problems creating the required server folders. Possibly a permissions issue. "
-				+ "Try running with sudo or using root user.");
-		log.debug("Exiting application.");
-		System.exit(4);
 	}
 	
 	public String getDownloadPath() { 

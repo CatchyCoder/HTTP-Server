@@ -36,7 +36,7 @@ public class ConnectionManager {
 	}
 	
 	public void listen() {
-		log.debug("Server is up and running.\n");
+		log.debug("Server is up and running.");
 		try {
 			while(Server.isOpen()) {
 				// Keep connecting to incoming clients

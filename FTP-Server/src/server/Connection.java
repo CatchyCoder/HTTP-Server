@@ -16,7 +16,10 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,6 +36,10 @@ public class Connection implements Runnable {
 	// Storing them in a list and closing them in a loop ensures all streams have been closed.
 	private final ArrayList<InputStream> inStreams = new ArrayList<InputStream>();
 	private final ArrayList<OutputStream> outStreams = new ArrayList<OutputStream>();
+	
+	// Establishing the maximum size for files that will be transferred to and from the server
+	final long MEGA_BYTE = 1000 * 1000;
+	final long MAX_SIZE_ALLOWED = 200 * MEGA_BYTE;
 	
 	public Connection(Socket socket, ConnectionManager manager) {
 		this.socket = socket;
@@ -94,30 +101,43 @@ public class Connection implements Runnable {
 	
 	@Override
 	public void run () {
-		// Wait for the client to give the server a command in the form of an integer
-		log.debug("Awaiting command from a client...");
-		int command = readInt();
-		
-		log.debug("Got command [" + command + "] from [" + socket.getInetAddress().getHostName() + "]");
-		
-		switch(command) {
-		case -1:
-			// Client wishes to disconnect from server, therefore do nothing
-			break;
-		case 0: // Client is requesting a test integer to ensure a solid connection
-			int rand = (int)(Math.random() * 100) + 1;
-			sendInt(rand);
-			break;
-		case 1: // Client is requesting a test file (song).
-			sendFile("/home/pi/server/muse-hysteria.mp3");
-			break;
-		case 2: // Client is adding a file to the database
-			downloadFile();
-			break;
-		default:
-			log.error("Command [" + command + "] is invalid.");
+		// Just keep checking if the socket has been closed, if not then it must be open.
+		// If the client asks to disconnect (or if anything goes wrong), disconnect() will be called
+		// and isClosed() should return true - terminating the loop.
+		while(!socket.isClosed()) {
+			// Wait for the client to give the server a command in the form of an integer
+			log.debug("Awaiting command from " + socket.getInetAddress() + "...");
+			int command = readInt();
+			
+			log.debug("Got command [" + command + "] from [" + socket.getInetAddress().getHostName() + "]");
+			
+			switch(command) {
+			case 0:
+				// Client wishes to disconnect from server
+				disconnect();
+				break;
+			case 1: // Client is requesting a test integer to ensure a solid connection
+				int rand = (int)(Math.random() * 100) + 1;
+				sendInt(rand);
+				break;
+			case 2: // Client is requesting a test file.
+				sendFile("/home/pi/server/muse-hysteria.mp3");
+				break;
+			case 3: // Client is adding a file to the database
+				downloadFile();
+				// Updating server with downloaded file
+				Server.STORAGE.update();
+				break;
+			case 4:
+				// Client is requesting a list of the contents in the database
+				
+				// TODO: Make a call to Storage to compile list
+				
+				break;
+			default:
+				log.error("Command [" + command + "] is invalid.");
+			}
 		}
-		disconnect();
 	}
 	
 	private int readInt() {
@@ -153,10 +173,43 @@ public class Connection implements Runnable {
 	}
 	
 	private void downloadFile() {
+		// Retrieving file extension from client
+		DataInputStream dInput = (DataInputStream) getInput(DataInputStream.class);
+		String extension = "";
+		try {
+			extension = dInput.readUTF();
+		} catch (IOException e) {
+			log.error("IO Error getting file extension.", e);
+			disconnect();
+			return;
+		}
+		
+		// Getting file size from client
+		long fileSize = -1;
+		try {
+			fileSize = dInput.readLong();
+		} catch(IOException e) {
+			log.error("IO Error getting file size from client.", e);
+			disconnect();
+			return;
+		}
+		
+		// Making sure the file isn't above a set limit allowed by the server
+		if(fileSize > MAX_SIZE_ALLOWED) {
+			log.error("File size of " + (fileSize / MEGA_BYTE) + "MB is above the allowed limit of " + MAX_SIZE_ALLOWED + "MB. The file download will be CANCELLED", new Exception("File size too large."));
+			disconnect();
+			return;
+		}
+		
+		// Creating name for file to be downloaded, name is based on current date and time
+		DateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy_HH-mm-ss");
+		Date date = new Date();
+		String name = dateFormat.format(date) + extension;
+		
 		log.debug("Setting up file streams...");
 		try(
 			// For storing the incoming file (saving)
-			FileOutputStream fOutput = new FileOutputStream(Server.STORAGE.getDownloadPath() + "/abc.mp3"); // TODO: CHANGE ME!!!!!!!!
+			FileOutputStream fOutput = new FileOutputStream(Server.STORAGE.getDownloadPath() + "/" + name);
 			BufferedOutputStream bOutput = new BufferedOutputStream(fOutput)
 		) {
 			fOutput.flush();
@@ -170,14 +223,6 @@ public class Connection implements Runnable {
 			// Declaring buffer size
 			int bufferSize = 1024 * 8;
 			byte[] bytes = new byte[bufferSize];
-			
-			// Getting file size from client
-			long fileSize;
-			DataInputStream dInput = (DataInputStream) getInput(DataInputStream.class);
-			if((fileSize = dInput.readLong()) == -1) {
-				log.error("Error getting file size from client.");
-				throw new Exception("FileSizeException");
-			}
 			
 			log.debug("Downloading " + (fileSize / 1000.0) + "kb file...");
 			//log.info("==============================================");
@@ -204,10 +249,6 @@ public class Connection implements Runnable {
 			log.error(e);
 			disconnect();
 		}
-		log.debug("try-with-resources block executed. File streams should be closed.");
-		
-		// Updating server with downloaded file
-		Server.STORAGE.update();
 	}
 	
 	public void sendFile(String filePath) {
@@ -220,20 +261,48 @@ public class Connection implements Runnable {
 			return;
 		}
 		
-		// Making sure the file isn't too big
+		// Making sure the file isn't above a set limit allowed by the server
 		long size = file.length();
 		
-		if(size > Long.MAX_VALUE) {
-			log.error("File size too large. " + size + " bytes.", new Exception("File size too large."));
+		if(size > MAX_SIZE_ALLOWED) {
+			log.error("File size of " + (size / MEGA_BYTE) + "MB is above the allowed limit of " + MAX_SIZE_ALLOWED + "MB. The file send will be CANCELLED", new Exception("File size too large."));
 			disconnect();
 			return;
 		}
+		
+		// Sending file extension to client
+		DataOutputStream dOutput = (DataOutputStream) getOutput(DataOutputStream.class);
+		try {
+			String fileName = file.getName();
+			// Parse file name to find out extension type
+			int dotIndex = fileName.lastIndexOf('.');
+			String extension = "";
+			if(dotIndex != -1) extension = fileName.substring(dotIndex, fileName.length());
+			dOutput.writeUTF(extension);
+			dOutput.flush();
+		} catch(IOException e) {
+			log.error("IO Error when sending file extension.", e);
+			disconnect();
+			return;
+		}
+		
+		// Sending file size to client
+		try {
+			dOutput.writeLong(size);
+			dOutput.flush();
+		} catch(IOException e) {
+			log.error("IO error sending file size.", e);
+			disconnect();
+			return;
+		}
+		
 		try (
 				// For reading/loading the file into RAM
 				FileInputStream fInput = new FileInputStream(file);
 				BufferedInputStream bInput = new BufferedInputStream(fInput)
 			) {
 			log.debug("Preparing to send file...");
+			
 			// Used for the buffer size
 			int bufferSize = 1024 * 8;
 			byte[] bytes = new byte[bufferSize];
@@ -241,9 +310,6 @@ public class Connection implements Runnable {
 			// For sending the file
 			final BufferedOutputStream bOutput = (BufferedOutputStream) getOutput(BufferedOutputStream.class);
 			bOutput.flush();
-			
-			// Sending file size to client
-			((DataOutputStream) (getOutput(DataOutputStream.class))).writeLong(size);
 			
 			log.debug("Sending " + (size / 1000.0) + "kb file...");
 			//log.info("==============================================");
