@@ -1,11 +1,11 @@
-package server.binarytree;
+package music.server.binarytree;
 
 import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import server.Track;
+import music.server.Track;
 
 public class BinaryTree {
 	

@@ -1,4 +1,4 @@
-package server;
+package music.server;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;

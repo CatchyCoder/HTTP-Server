@@ -1,4 +1,4 @@
-package server;
+package music.server;
 
 import org.jaudiotagger.tag.FieldKey;
 

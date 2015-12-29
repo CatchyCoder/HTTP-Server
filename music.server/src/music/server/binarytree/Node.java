@@ -1,6 +1,6 @@
-package server.binarytree;
+package music.server.binarytree;
 
-import server.Track;
+import music.server.Track;
 
 public class Node {
 

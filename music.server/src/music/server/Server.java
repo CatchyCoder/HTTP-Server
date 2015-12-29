@@ -1,4 +1,4 @@
-package server;
+package music.server;
 
 import java.io.IOException;
 import java.net.ServerSocket;

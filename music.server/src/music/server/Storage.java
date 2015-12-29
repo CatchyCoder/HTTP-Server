@@ -1,4 +1,4 @@
-package server;
+package music.server;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,8 +19,8 @@ import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.TagException;
 
-import server.binarytree.BinaryTree;
-import server.binarytree.Node;
+import music.server.binarytree.BinaryTree;
+import music.server.binarytree.Node;
 
 public class Storage {
 	

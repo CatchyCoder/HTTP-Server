@@ -1,4 +1,4 @@
-package server;
+package music.server;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -12,13 +12,13 @@ public class ConnectionManager {
 	private static final Logger log = LogManager.getLogger(ConnectionManager.class);
 	
 	private final Server SERVER;
-	private ArrayList<Connection> sockets = new ArrayList<Connection>();
+	private ArrayList<ConnectionImpl> sockets = new ArrayList<ConnectionImpl>();
 	
 	public ConnectionManager(final Server SERVER) {
 		this.SERVER = SERVER;
 	}
 	
-	public Connection checkConnections() throws IOException {
+	public ConnectionImpl checkConnections() throws IOException {
 		if(sockets.size() == 0) log.debug("Awaiting a connection... ");
 		
 		// Thread will stay at this line (block) until a connection is successfully established.
@@ -27,7 +27,7 @@ public class ConnectionManager {
 		log.debug("Connection established with [" + socket.getInetAddress().getHostName() + "].");
 		
 		// This will automatically configure the connection
-		Connection connection = new Connection(socket, this);
+		ConnectionImpl connection = new ConnectionImpl(socket, this);
 		
 		// Adding to the list of connections
 		sockets.add(connection);
@@ -51,7 +51,7 @@ public class ConnectionManager {
 		}
 		finally {
 			// Disconnect from all clients
-			for(Connection connection : sockets) connection.disconnect();
+			for(ConnectionImpl connection : sockets) connection.disconnect();
 			try {
 				// Close server
 				SERVER.getServer().close();
@@ -63,12 +63,12 @@ public class ConnectionManager {
 	}
 	
 	public void disconnectAll() {
-		for(Connection connection: sockets) {
+		for(ConnectionImpl connection: sockets) {
 			connection.disconnect();
 		}
 	}
 	
-	synchronized public void remove(Connection connection) {
+	synchronized public void remove(ConnectionImpl connection) {
 		sockets.remove(connection);
 	}
 }
