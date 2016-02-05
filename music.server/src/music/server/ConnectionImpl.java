@@ -70,7 +70,7 @@ public class ConnectionImpl extends AbstractConnection implements Runnable {
 	
 	@Override
 	public synchronized void disconnect() {
-		this.disconnect();
+		super.disconnect();
 		// Removing the connection from the connection manager's list of connections
 		manager.remove(this);
 	}
