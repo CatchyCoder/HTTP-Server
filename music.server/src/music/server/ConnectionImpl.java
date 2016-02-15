@@ -26,45 +26,32 @@ public class ConnectionImpl extends AbstractConnection implements Runnable {
 		// Just keep checking if the socket has been closed, if not then it must be open.
 		// If the client asks to disconnect (or if anything goes wrong), disconnect() will be called
 		// and isClosed() should return true - terminating the loop.
+		
+		// Notify client that that server is ready for initial message
+		writeInt(Message.ACK.ordinal());
+		
 		while(!isClosed()) {
 			// Wait for the client to give the server a command in the form of an integer
 			log.debug("Awaiting command from " + getInetAddress() + "...");
 			int command = readInt();
-			
 			log.debug("Got command [" + command + "] from [" + getInetAddress().getHostName() + "]");
 			
-			switch(command) {
-			case 0:
-				// Client wishes to disconnect from server
-				disconnect();
-				break;
-			case 1: // Client is requesting a test integer to ensure a solid connection
-				int rand = (int)(Math.random() * 100) + 1;
-				sendInt(rand);
-				break;
-			case 2: // Client is requesting a test file.
-				sendFile("/mnt/ext500GB/server/muse-hysteria.mp3");
-				break;
-			case 3: // Client is adding a file to the database
-				downloadFile(Server.STORAGE.getDownloadPath());
+			// Client wishes to disconnect from server
+			if(command == Message.DISCONNECT.ordinal()) disconnect();
+			
+			// Client is adding a file to the database
+			else if(command == Message.CLIENT_UPLOAD_FILE.ordinal()) {
+				readFile(Server.STORAGE.getDownloadPath());
 				// Updating server with downloaded file
 				Server.STORAGE.update();
-				break;
-			case 4:
-				// Client is requesting file from database
-				
-				// TODO: Make a call to Storage to retrieve file
-				
-				break;
-			case 5:
-				// Client is requesting a list of the contents in the database
-				
-				// TODO: Make a call to Storage to compile list
-				
-				break;
-			default:
-				log.error("Command [" + command + "] is invalid.");
 			}
+			
+			// Client is requesting file from database
+			else if(command == Message.SERVER_UPLOAD_FILE.ordinal()) {
+				writeFile("/mnt/ext500GB/server/muse-hysteria.mp3");
+			}
+			
+			else log.error("Command [" + command + "] is invalid.");
 		}
 	}
 	
