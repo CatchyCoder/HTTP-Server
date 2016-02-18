@@ -12,13 +12,15 @@ public class ConnectionManager {
 	private static final Logger log = LogManager.getLogger(ConnectionManager.class);
 	
 	private final Server SERVER;
-	private ArrayList<ConnectionImpl> sockets = new ArrayList<ConnectionImpl>();
+	private final Storage STORAGE;
+	private ArrayList<ServerConnection> sockets = new ArrayList<ServerConnection>();
 	
-	public ConnectionManager(final Server SERVER) {
+	public ConnectionManager(final Server SERVER, final Storage STORAGE) {
 		this.SERVER = SERVER;
+		this.STORAGE = STORAGE;
 	}
 	
-	public ConnectionImpl checkConnections() throws IOException {
+	public ServerConnectionImpl checkConnections() throws IOException {
 		if(sockets.size() == 0) log.debug("Awaiting a connection... ");
 		
 		// Thread will stay at this line (block) until a connection is successfully established.
@@ -27,7 +29,7 @@ public class ConnectionManager {
 		log.debug("Connection established with [" + socket.getInetAddress().getHostName() + "].");
 		
 		// This will automatically configure the connection
-		ConnectionImpl connection = new ConnectionImpl(socket, this);
+		ServerConnectionImpl connection = new ServerConnectionImpl(socket, this, STORAGE);
 		
 		// Adding to the list of connections
 		sockets.add(connection);
@@ -51,7 +53,7 @@ public class ConnectionManager {
 		}
 		finally {
 			// Disconnect from all clients
-			for(ConnectionImpl connection : sockets) connection.disconnect();
+			for(ServerConnection connection : sockets) connection.disconnect();
 			try {
 				// Close server
 				SERVER.getServer().close();
@@ -63,12 +65,12 @@ public class ConnectionManager {
 	}
 	
 	public void disconnectAll() {
-		for(ConnectionImpl connection: sockets) {
+		for(ServerConnection connection: sockets) {
 			connection.disconnect();
 		}
 	}
 	
-	synchronized public void remove(ConnectionImpl connection) {
+	synchronized public void remove(ServerConnection connection) {
 		sockets.remove(connection);
 	}
 }

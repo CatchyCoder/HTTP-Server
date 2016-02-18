@@ -22,7 +22,7 @@ public class Server {
 		// Setting up server
 		server = new ServerSocket(port, backlog);
 		// Setting up the connection manager which handles connections
-		MANAGER = new ConnectionManager(this);
+		MANAGER = new ConnectionManager(this, STORAGE);
 		
 		isOpen = true;
 		log.debug("Server setup is complete.");

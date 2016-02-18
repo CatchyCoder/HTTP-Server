@@ -10,17 +10,11 @@ import java.util.Arrays;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jaudiotagger.audio.AudioFile;
-import org.jaudiotagger.audio.AudioFileIO;
-import org.jaudiotagger.audio.exceptions.CannotReadException;
-import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
-import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
 import org.jaudiotagger.tag.FieldKey;
-import org.jaudiotagger.tag.Tag;
-import org.jaudiotagger.tag.TagException;
 
-import music.server.binarytree.BinaryTree;
-import music.server.binarytree.Node;
+import music.core.Track;
+import music.core.binarytree.BinaryTree;
+import music.core.binarytree.Node;
 
 public class Storage {
 	
@@ -29,12 +23,6 @@ public class Storage {
 	private final File databaseFolder; // The actual database
 	private final File downloadFolder; // A staging folder before files are placed into the database
 	private final BinaryTree tree;
-	
-	/*
-	 * TODO:
-	 * + Periodically clean database of empty folders that may be caused by songs having a field renamed. (Does it need this if clients cannot delete or edit files?)
-	 * 
-	 */
 	
 	public Storage() {
 		tree = new BinaryTree();
@@ -119,28 +107,30 @@ public class Storage {
 				extension = extension.toLowerCase();
 				
 				// Check file to make sure it is legitimate
-				if(!checkFile(song, extension)) {
-					log.debug("File " + song.getAbsolutePath() + " did not pass check test. File will NOT be added to database.");
-					return;
-				}
+				if(!checkFile(song, extension)) continue;
 				
 				// Retrieve artist, album, and name of downloaded song
-				String artist = getField(FieldKey.ARTIST, song.getAbsolutePath());
-				String album = getField(FieldKey.ALBUM, song.getAbsolutePath());
-				String title = getField(FieldKey.TITLE, song.getAbsolutePath());
+				String artist = Track.getField(FieldKey.ARTIST, song.getAbsolutePath());
+				String album = Track.getField(FieldKey.ALBUM, song.getAbsolutePath());
+				String title = Track.getField(FieldKey.TITLE, song.getAbsolutePath());
 				
-				// Replacing all spaces with underscores (for folder naming)
+				// Replacing all invalid characters with underscores (for folder naming)
 				// and converting to all lower case
-				artist = artist.replace(' ', '_').toLowerCase();
-				album = album.replace(' ', '_').toLowerCase();
-				title = title.replace(' ', '_').toLowerCase();
+				String valid = "[^a-zA-Z0-9.-]"; // List of characters to not replace (NOT marked by ^)
+				artist = artist.replaceAll(valid, "_").toLowerCase();
+				album = album.replaceAll(valid, "_").toLowerCase();
+				title = title.replaceAll(valid, "_").toLowerCase();
 				
 				// The new location to move the file
-				File newDirectory = new File(databaseFolder.getAbsolutePath() + "/" + artist + "/" + album);
-				File newFile = new File(newDirectory.getAbsolutePath() + "/" + title + extension);
+				String dirLocation = databaseFolder.getAbsolutePath() + "/" + artist + "/" + album;
+				String fileLocation = dirLocation + "/" + title + extension;
+				
+				File newDirectory = new File(dirLocation);
+				File newFile = new File(fileLocation);
 				try {
 					// Create directory for new file
 					if(!newDirectory.exists()) newDirectory.mkdirs();
+					
 					
 					// Move the file. If the file already exists, replace it.
 					Path path = Files.move(song.toPath(), newFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -221,7 +211,7 @@ public class Storage {
 	private boolean checkFile(File file, String extension) {
 		// Checking if the file is a directory
 		if(file.isDirectory()) {
-			log.error("File " + file.getAbsolutePath() + " is a directory, and therefore cannot be moved into the database. Deleting folder");
+			log.error("File " + file.getName() + " is a directory, and therefore cannot be moved into the database. Deleting folder");
 			if(file.delete()) log.error("Done.");
 			else log.error("There was a problem deleting the file.");
 			return false;
@@ -242,13 +232,13 @@ public class Storage {
 			// The file is a supported format, attempt to retrieve song data from it
 			
 			// Retrieve artist, album, and name of downloaded song
-			String artist = getField(FieldKey.ARTIST, file.getAbsolutePath());
-			String album = getField(FieldKey.ALBUM, file.getAbsolutePath());
-			String title = getField(FieldKey.TITLE, file.getAbsolutePath());
+			String artist = Track.getField(FieldKey.ARTIST, file.getAbsolutePath());
+			String album = Track.getField(FieldKey.ALBUM, file.getAbsolutePath());
+			String title = Track.getField(FieldKey.TITLE, file.getAbsolutePath());
 			
 			// If anything could not be read, note that there were issues with the file and delete it
 			if(artist == null || album == null || title == null) {
-				log.debug("There was a problem getting track data from " + file.getAbsolutePath() + ". Deleting file...");
+				log.debug("There was a problem getting track data from " + file.getName() + ". Deleting file...");
 				if(file.delete()) log.error("Done.");
 				else log.error("There was a problem deleting the file.");
 				return false;
@@ -257,7 +247,7 @@ public class Storage {
 		}
 		else {
 			// Incorrect file format
-			log.error("File " + file.getAbsolutePath() + " is not a supported audio file. Deleting file...");
+			log.error("File " + file.getName() + " is not a supported audio file. Deleting file...");
 			
 			// Deleting file
 			if(file.delete()) log.debug("Done.");
@@ -334,16 +324,7 @@ public class Storage {
 		}
 	}
 	
-	public static String getField(FieldKey key, String filePath) {
-		try {
-			AudioFile song = AudioFileIO.read(new File(filePath));
-			Tag tag = song.getTag();
-			return tag.getFirst(key);
-		} catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
-			log.error("Error getting field " + key + " for " + filePath, e);
-		}
-		return null;
-	}
+	
 	
 	public String getDownloadPath() { 
 		return downloadFolder.getAbsolutePath();
@@ -351,5 +332,9 @@ public class Storage {
 	
 	public String getDatabasePath() {
 		return databaseFolder.getAbsolutePath();
+	}
+	
+	public BinaryTree getBinaryTree() {
+		return tree;
 	}
 }
