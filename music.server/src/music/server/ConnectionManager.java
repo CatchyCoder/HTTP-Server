@@ -53,7 +53,7 @@ public class ConnectionManager {
 		}
 		finally {
 			// Disconnect from all clients
-			for(ServerConnection connection : sockets) connection.disconnect();
+			disconnectAll();
 			try {
 				// Close server
 				SERVER.getServer().close();
