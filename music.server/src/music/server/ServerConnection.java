@@ -3,6 +3,7 @@ package music.server;
 import java.net.Socket;
 
 import music.core.AbstractConnection;
+import music.core.Storage;
 
 public abstract class ServerConnection extends AbstractConnection implements Runnable {
 

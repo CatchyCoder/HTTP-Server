@@ -5,6 +5,10 @@ import java.net.Socket;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import music.core.Storage;
+import music.core.Track;
+import music.core.binarytree.BinaryTree;
+
 public class ServerConnectionImpl extends ServerConnection {
 	
 	private static final Logger log = LogManager.getLogger(ServerConnectionImpl.class);
@@ -20,11 +24,10 @@ public class ServerConnectionImpl extends ServerConnection {
 		// and isClosed() should return true - terminating the loop.
 		while(!isClosed()) {
 			// Wait for the client to give the server a command in the form of an integer
-			log.debug("Awaiting command from " + getInetAddress() + "...");
+			log.debug("Awaiting command from " + getInetAddress().getHostName() + "...");
 			int command = readInt();
-			log.debug("Got command [" + command + "] from [" + getInetAddress().getHostName() + "]");
-			
 			final Message[] vals = Message.values();
+			log.debug("Recieved " + vals[command] + " from " + getInetAddress().getHostName());
 			
 			switch(vals[command]) {
 			case DISCONNECT:
@@ -32,11 +35,11 @@ public class ServerConnectionImpl extends ServerConnection {
 				break;
 			case LIBRARY:
 				// Client is requesting the binary tree of Tracks
-				writeTree(STORAGE.getBinaryTree());
+				writeObject(STORAGE.getBinaryTree());
 				break;
 			case DATABASE_RETRIEVE:
 				// Client is requesting file from database
-				writeFile("/mnt/ext500GB/server/muse-hysteria.mp3");
+				retrieve();
 				break;
 			case DATABASE_ADD:
 				// Client is adding a file to the database
@@ -48,5 +51,17 @@ public class ServerConnectionImpl extends ServerConnection {
 				log.error("Command [" + command + "] is invalid.");
 			}
 		}
+	}
+	
+	private void retrieve() {
+		// Await Track object from client that identifies the track it wishes to retrieve
+		Track track = (Track) readObject();
+		
+		// Grabbing file path from Track object
+		BinaryTree tree = STORAGE.getBinaryTree();
+		String filePath = tree.find(track).getTrack().getPath();
+		
+		// Sending file
+		writeFile(filePath);
 	}
 }

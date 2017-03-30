@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import music.core.Storage;
+
 public class ConnectionManager {
 	
 	private static final Logger log = LogManager.getLogger(ConnectionManager.class);
