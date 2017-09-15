@@ -27,7 +27,6 @@ public class Server {
 		MANAGER = new ConnectionManager(this, STORAGE);
 		
 		isOpen = true;
-		log.debug("Server setup is complete.");
 	}
 	
 	public void start() {

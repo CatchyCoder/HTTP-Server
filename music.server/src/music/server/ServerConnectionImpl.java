@@ -39,7 +39,11 @@ public class ServerConnectionImpl extends ServerConnection {
 				break;
 			case DATABASE_RETRIEVE:
 				// Client is requesting file from database
-				retrieve();
+				//retrieve();
+				
+				// Testing
+				writeFile("C:/mnt/ext500GB/server/test.wav");
+				
 				break;
 			case DATABASE_ADD:
 				// Client is adding a file to the database
