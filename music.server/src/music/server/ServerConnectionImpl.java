@@ -38,11 +38,11 @@ public class ServerConnectionImpl extends ServerConnection {
 				writeObject(STORAGE.getBinaryTree());
 				break;
 			case DATABASE_RETRIEVE:
-				// Client is requesting file from database
-				//retrieve();
+				// Client is requesting file from database to be downloaded
+				//retrieve(false);
 				
 				// Testing
-				writeFile("C:/mnt/ext500GB/server/test.wav");
+				writeFile("C:/mnt/ext500GB/server/test.wav", false);
 				
 				break;
 			case DATABASE_ADD:
@@ -51,13 +51,20 @@ public class ServerConnectionImpl extends ServerConnection {
 				// Updating server with new track file
 				Server.STORAGE.update();
 				break;
+			case DATABASE_STREAM:
+				// Client is requesting file from database for real-time streaming
+				
+				// Testing
+				writeFile("C:/mnt/ext500GB/server/test.wav", true);
+				
+				break;
 			default:
 				log.error("Command [" + command + "] is invalid.");
 			}
 		}
 	}
 	
-	private void retrieve() {
+	private void retrieve(boolean streaming) {
 		// Await Track object from client that identifies the track it wishes to retrieve
 		Track track = (Track) readObject();
 		
@@ -66,6 +73,6 @@ public class ServerConnectionImpl extends ServerConnection {
 		String filePath = tree.find(track).getTrack().getPath();
 		
 		// Sending file
-		writeFile(filePath);
+		writeFile(filePath, streaming);
 	}
 }
