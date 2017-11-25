@@ -17,7 +17,7 @@ public class ServerDriver {
 		try {
 			final int port = 6501;
 			final int backlog = 50; // Maximum queue length of incoming connections
-			Server server = new Server(port, backlog);
+			Server server = new Server(port, port + 1, port + 2, port + 3, backlog);
 			log.debug("RUNNING SERVER:");
 			server.run();
 		} catch (IOException e) {
